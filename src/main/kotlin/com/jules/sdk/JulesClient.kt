@@ -1,21 +1,33 @@
 package com.jules.sdk
 
+import io.ktor.client.*
+import java.io.Closeable
+
 /**
  * A Kotlin client for the Jules AI API.
  *
  * This client provides a simple and convenient way to interact with the Jules API,
  * including methods for managing sources, sessions, and activities.
  *
- * @property apiKey The API key for authenticating with the Jules API.
- * @property baseUrl The base URL of the Jules API. Defaults to "https://jules.googleapis.com/v1alpha".
- * @property retryConfig The configuration for retrying failed requests. Defaults to a new `RetryConfig` instance.
+ * @property httpClient The underlying HTTP client for making API requests.
  */
 class JulesClient(
-    val apiKey: String,
-    val baseUrl: String = "https://jules.googleapis.com/v1alpha",
-    val retryConfig: RetryConfig = RetryConfig()
-) {
-    private val httpClient = HttpClient(apiKey, baseUrl, retryConfig = retryConfig)
+    private val httpClient: JulesHttpClient
+) : Closeable {
+    /**
+     * Secondary constructor for creating a `JulesClient` with an API key.
+     *
+     * @param apiKey The API key for authenticating with the Jules API.
+     * @param baseUrl The base URL of the Jules API. Defaults to "https://jules.googleapis.com/v1alpha".
+     * @param retryConfig The configuration for retrying failed requests. Defaults to a new `RetryConfig` instance.
+     * @param ktorClient An optional pre-configured Ktor HttpClient.
+     */
+    constructor(
+        apiKey: String,
+        baseUrl: String = "https://jules.googleapis.com/v1alpha",
+        retryConfig: RetryConfig = RetryConfig(),
+        ktorClient: HttpClient? = null
+    ) : this(JulesHttpClient(apiKey, baseUrl, retryConfig = retryConfig, httpClient = ktorClient))
 
     /**
      * Lists all available sources.
@@ -50,7 +62,7 @@ class JulesClient(
      * @return The created `Session` object.
      */
     suspend fun createSession(request: CreateSessionRequest): Session {
-        return httpClient.postAndReceive<Session>("/sessions", request)
+        return httpClient.post<Session>("/sessions", request)
     }
 
     /**
@@ -117,9 +129,14 @@ class JulesClient(
      *
      * @param sessionId The ID of the session.
      * @param prompt The prompt to send to the agent.
+     * @return A `MessageResponse` object.
      */
-    suspend fun sendMessage(sessionId: String, prompt: String) {
+    suspend fun sendMessage(sessionId: String, prompt: String): MessageResponse {
         require(prompt.isNotBlank()) { "Prompt must be a non-empty string" }
-        httpClient.postWithBody("/sessions/$sessionId:sendMessage", mapOf("prompt" to prompt))
+        return httpClient.post<MessageResponse>("/sessions/$sessionId:sendMessage", mapOf("prompt" to prompt))
+    }
+
+    override fun close() {
+        httpClient.close()
     }
 }

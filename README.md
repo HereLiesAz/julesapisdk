@@ -90,7 +90,7 @@ val client = JulesClient(
 - `apiKey`: Your Jules API key (required).
 - `baseUrl`: The base URL for the Jules API (optional, defaults to `https://jules.googleapis.com/v1alpha`).
 - `retryConfig`: Configuration for request retries (optional).
-  - `maxRetries`: Maximum number of retry attempts (default: 3).
+  - `maxRetries`: Maximum number of retry attempts (default: 0, retries are disabled by default).
   - `initialDelayMs`: The initial delay in milliseconds before the first retry (default: 1000).
 
 **Example with all options:**
@@ -148,7 +148,7 @@ The SDK is built on Ktor and provides robust error handling features.
 
 ### Automatic Retries
 
-Retries are enabled by default for network failures and specific HTTP status codes (408, 429, 500, 502, 503, 504). You can customize the retry behavior:
+Retries are **disabled by default**. To enable them, provide a `RetryConfig` with `maxRetries` greater than 0.
 
 ```kotlin
 val client = JulesClient(

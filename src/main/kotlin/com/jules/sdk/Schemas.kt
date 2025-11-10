@@ -238,3 +238,13 @@ data class GoogleApiError(
     val status: String,
     val details: List<ErrorDetail>? = null
 )
+
+/**
+ * The response from sending a message.
+ *
+ * @property message A confirmation message.
+ */
+@Serializable
+data class MessageResponse(
+    val message: String
+)

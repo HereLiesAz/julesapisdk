@@ -7,9 +7,11 @@ import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
+import java.io.Closeable
 
 /**
  * Configuration for retrying failed HTTP requests.
@@ -18,7 +20,7 @@ import kotlinx.serialization.json.Json
  * @property initialDelayMs The initial delay in milliseconds before the first retry.
  */
 data class RetryConfig(
-    val maxRetries: Int = 3,
+    val maxRetries: Int = 0,
     val initialDelayMs: Long = 1000
 )
 
@@ -32,14 +34,16 @@ data class RetryConfig(
  * @property baseUrl The base URL of the Jules API.
  * @property timeout The timeout for HTTP requests in milliseconds.
  * @property retryConfig The configuration for retrying failed requests.
+ * @property httpClient An optional pre-configured Ktor HttpClient.
  */
-class HttpClient(
+class JulesHttpClient(
     private val apiKey: String,
-    private val baseUrl: String = "https://jules.googleapis.com/v1alpha",
+    val baseUrl: String = "https://jules.googleapis.com/v1alpha",
     private val timeout: Long = 30000,
-    private val retryConfig: RetryConfig = RetryConfig()
-) {
-    val client = HttpClient(CIO) {
+    private val retryConfig: RetryConfig = RetryConfig(),
+    private val httpClient: HttpClient? = null
+) : Closeable {
+    val client = httpClient ?: HttpClient(CIO) {
         engine {
             requestTimeout = timeout
         }
@@ -61,7 +65,6 @@ class HttpClient(
             }
         }
         defaultRequest {
-            url(baseUrl)
             header("X-Goog-Api-Key", apiKey)
             contentType(ContentType.Application.Json)
         }
@@ -76,11 +79,15 @@ class HttpClient(
      * @return The response body, deserialized to the expected type.
      */
     suspend inline fun <reified T> get(endpoint: String, params: Map<String, String> = emptyMap()): T {
-        return client.get(endpoint) {
+        val response = client.get(baseUrl + endpoint) {
             params.forEach { (key, value) ->
                 parameter(key, value)
             }
-        }.body()
+        }
+        if (!response.status.isSuccess()) {
+            throw JulesApiException(response.status.value, response.body())
+        }
+        return response.body()
     }
 
     /**
@@ -91,22 +98,14 @@ class HttpClient(
      * @param body The request body.
      * @return The response body, deserialized to the expected type.
      */
-    suspend inline fun <reified T> postAndReceive(endpoint: String, body: Any): T {
-        return client.post(endpoint) {
-            setBody(body)
-        }.body()
-    }
-
-    /**
-     * Makes a POST request with a body and does not expect a response.
-     *
-     * @param endpoint The API endpoint to call.
-     * @param body The request body.
-     */
-    suspend fun postWithBody(endpoint: String, body: Any) {
-        client.post(endpoint) {
+    suspend inline fun <reified T> post(endpoint: String, body: Any): T {
+        val response = client.post(baseUrl + endpoint) {
             setBody(body)
         }
+        if (!response.status.isSuccess()) {
+            throw JulesApiException(response.status.value, response.body())
+        }
+        return response.body()
     }
 
     /**
@@ -115,6 +114,13 @@ class HttpClient(
      * @param endpoint The API endpoint to call.
      */
     suspend fun post(endpoint: String) {
-        client.post(endpoint)
+        val response = client.post(baseUrl + endpoint)
+        if (!response.status.isSuccess()) {
+            throw JulesApiException(response.status.value, response.body())
+        }
+    }
+
+    override fun close() {
+        client.close()
     }
 }
