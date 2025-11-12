@@ -59,6 +59,15 @@ fun main() = runBlocking {
 }
 ```
 
+## Android Test App
+
+The included Android test app in the `android-test-app` directory provides a simple way to test the SDK's functionality. To use the test app, you need to provide a valid API key and a source.
+
+### Configuring the Test App
+
+1.  **API Key**: Enter your Jules API key in the "API Key" field in the app's settings.
+2.  **Source**: Enter a valid source in the "Source" field. A valid source is a string in the format `sources/github/<owner>/<repo>`. For example, `sources/github/google/jules`. You can find a list of your available sources by using the `listSources()` method in the SDK or by checking the Jules web app.
+
 ## API Methods
 
 All methods are `suspend` functions and should be called from a coroutine.

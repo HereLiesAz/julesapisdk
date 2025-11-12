@@ -17,9 +17,11 @@ class MainViewModel : ViewModel() {
 
     private var julesClient: JulesClient? = null
     private var julesSession: JulesSession? = null
+    private var source: String? = null
 
-    fun setApiKey(apiKey: String) {
+    fun setApiKey(apiKey: String, source: String) {
         if (apiKey.isNotBlank()) {
+            this.source = source
             julesClient = JulesClient(apiKey)
             _messages.postValue(emptyList())
             createJulesSession()
@@ -29,7 +31,9 @@ class MainViewModel : ViewModel() {
     private fun createJulesSession() {
         viewModelScope.launch {
             try {
-                julesSession = julesClient?.createSession(CreateSessionRequest("Test Application", SourceContext("Test Application")))
+                source?.let {
+                    julesSession = julesClient?.createSession(CreateSessionRequest("Test Application", SourceContext(it)))
+                }
             } catch (e: Exception) {
                 addMessage(Message("Error creating session: ${e.message}", MessageType.ERROR))
             }

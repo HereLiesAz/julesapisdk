@@ -32,6 +32,7 @@ class SettingsFragment : Fragment() {
 
         setupClickListeners()
         loadApiKey()
+        loadSource()
     }
 
     private fun setupClickListeners() {
@@ -42,8 +43,10 @@ class SettingsFragment : Fragment() {
 
         binding.saveApiKeyButton.setOnClickListener {
             val apiKey = binding.apiKeyEdittext.text.toString()
-            viewModel.setApiKey(apiKey)
+            val source = binding.sourceEdittext.text.toString()
+            viewModel.setApiKey(apiKey, source)
             saveApiKey(apiKey)
+            saveSource(source)
         }
     }
 
@@ -65,9 +68,22 @@ class SettingsFragment : Fragment() {
     private fun loadApiKey() {
         val sharedPreferences = getEncryptedSharedPreferences()
         val apiKey = sharedPreferences.getString("api_key", "")
+        val source = sharedPreferences.getString("source", "")
         if (!apiKey.isNullOrBlank()) {
             binding.apiKeyEdittext.setText(apiKey)
-            viewModel.setApiKey(apiKey)
+            viewModel.setApiKey(apiKey, source ?: "")
+        }
+    }
+
+    private fun saveSource(source: String) {
+        getEncryptedSharedPreferences().edit().putString("source", source).apply()
+    }
+
+    private fun loadSource() {
+        val sharedPreferences = getEncryptedSharedPreferences()
+        val source = sharedPreferences.getString("source", "")
+        if (!source.isNullOrBlank()) {
+            binding.sourceEdittext.setText(source)
         }
     }
 
