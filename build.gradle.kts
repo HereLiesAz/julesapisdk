@@ -25,6 +25,12 @@ android {
     publishing {
         singleVariant("release")
     }
+
+    testOptions {
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
+    }
 }
 
 group = "com.hereliesaz.julesapisdk"
@@ -34,7 +40,7 @@ version = "1.0.1"
 dependencies {
     // Ktor client
     implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.ktor.client.logging)
@@ -46,11 +52,16 @@ dependencies {
     implementation(libs.slf4j.api)
 
     // Testing
-    testImplementation(kotlin("test"))
+    testImplementation(kotlin("test-junit5"))
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
     testImplementation(libs.mockk)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.logback.classic)
+}
 
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
 
 publishing {

@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.hereliesaz.julesapisdk.CreateSessionRequest
 import com.hereliesaz.julesapisdk.JulesClient
 import com.hereliesaz.julesapisdk.JulesSession
+import com.hereliesaz.julesapisdk.SdkResult
+import com.hereliesaz.julesapisdk.Session
 import com.hereliesaz.julesapisdk.Source
 import com.hereliesaz.julesapisdk.SourceContext
 import kotlinx.coroutines.launch
@@ -36,7 +38,7 @@ class MainViewModel : ViewModel() {
     fun addLog(log: String) { // Changed to public
         val timestamp = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault()).format(Date())
         val currentLogs = _diagnosticLogs.value.orEmpty().toMutableList()
-        currentLogs.add(0, "$timestamp: $log") // Add to the top for most recent first
+        currentLogs.add("$timestamp: $log") // Add to the bottom for most recent last
         _diagnosticLogs.postValue(currentLogs)
     }
 
@@ -56,42 +58,62 @@ class MainViewModel : ViewModel() {
         }
         addLog("Loading sources...")
         viewModelScope.launch {
-            try {
-                val sourceList = julesClient?.listSources()?.sources
-                if (sourceList.isNullOrEmpty()) {
-                    addLog("No sources found for this API key.")
-                    _sources.postValue(emptyList())
-                } else {
-                    _sources.postValue(sourceList)
-                    addLog("Successfully loaded ${sourceList.size} sources.")
+            when (val result = julesClient?.listSources()) {
+                is SdkResult.Success -> {
+                    val sourceList = result.data.sources
+                    if (sourceList.isNullOrEmpty()) {
+                        addLog("No sources found for this API key.")
+                        _sources.postValue(emptyList())
+                    } else {
+                        _sources.postValue(sourceList)
+                        addLog("Successfully loaded ${sourceList.size} sources.")
+                    }
                 }
-            } catch (e: Exception) {
-                val sw = StringWriter()
-                e.printStackTrace(PrintWriter(sw))
-                addLog("Error loading sources:\n$sw")
+                is SdkResult.Error -> {
+                    addLog("API Error loading sources: ${result.code} - ${result.body}")
+                }
+                is SdkResult.NetworkError -> {
+                    val sw = StringWriter()
+                    result.throwable.printStackTrace(PrintWriter(sw))
+                    addLog("Network error loading sources:\n$sw")
+                }
+                null -> {
+                     addLog("Error: JulesClient is not initialized.")
+                }
             }
         }
     }
 
     fun createSession(source: Source) {
         if (julesClient == null) {
-            addLog("Error: API Key not set. Cannot create session.")
+            addLog("Error: API Key is not set. Cannot create session.")
             return
         }
         addLog("Creating session with source: ${source.name}")
         viewModelScope.launch {
-            try {
-                _messages.postValue(emptyList()) // Clear chat on new session
-                julesSession = julesClient?.createSession(CreateSessionRequest("Test Application", SourceContext(source.name)))
-                val successMsg = "Session created with source: ${source.url}"
-                addMessage(Message(successMsg, MessageType.BOT))
-                addLog(successMsg)
-            } catch (e: Exception) {
-                val sw = StringWriter()
-                e.printStackTrace(PrintWriter(sw))
-                val errorMsg = "Error creating session:\n$sw"
-                addMessage(Message(errorMsg, MessageType.ERROR)) // Also show error in chat
-                addLog(errorMsg)
+            _messages.postValue(emptyList()) // Clear chat on new session
+            when (val result = julesClient?.createSession(CreateSessionRequest("Test Application", SourceContext(source.name)))) {
+                is SdkResult.Success -> {
+                    julesSession = result.data
+                    val successMsg = "Session created with source: ${source.url}"
+                    addMessage(Message(successMsg, MessageType.BOT))
+                    addLog(successMsg)
+                }
+                is SdkResult.Error -> {
+                    val errorMsg = "API Error creating session: ${result.code} - ${result.body}"
+                    addMessage(Message(errorMsg, MessageType.ERROR))
+                    addLog(errorMsg)
+                }
+                is SdkResult.NetworkError -> {
+                    val sw = StringWriter()
+                    result.throwable.printStackTrace(PrintWriter(sw))
+                    val errorMsg = "Network error creating session:\n$sw"
+                    addMessage(Message(errorMsg, MessageType.ERROR))
+                    addLog(errorMsg)
+                }
+                null -> {
+                     addLog("Error: JulesClient is not initialized.")
+                }
             }
         }
     }
@@ -107,15 +129,25 @@ class MainViewModel : ViewModel() {
         addMessage(Message(text, MessageType.USER))
 
         viewModelScope.launch {
-            try {
-                val response = julesSession?.sendMessage(text)
-                response?.let {
-                    addMessage(Message(it.message, MessageType.BOT))
+            when (val result = julesSession?.sendMessage(text)) {
+                is SdkResult.Success -> {
+                    addLog("Message sent successfully. Agent response will arrive in a new activity.")
                 }
-            } catch (e: Exception) {
-                val errorMsg = "Error sending message: ${e.message}"
-                addLog(errorMsg)
-                addMessage(Message(errorMsg, MessageType.ERROR))
+                is SdkResult.Error -> {
+                    val errorMsg = "Error sending message: ${result.code} - ${result.body}"
+                    addLog(errorMsg)
+                    addMessage(Message(errorMsg, MessageType.ERROR))
+                }
+                is SdkResult.NetworkError -> {
+                    val sw = StringWriter()
+                    result.throwable.printStackTrace(PrintWriter(sw))
+                    val errorMsg = "Network error sending message:\n$sw"
+                    addLog(errorMsg)
+                    addMessage(Message(errorMsg, MessageType.ERROR))
+                }
+                null -> {
+                    addLog("Error: Session is not initialized.")
+                }
             }
         }
     }
