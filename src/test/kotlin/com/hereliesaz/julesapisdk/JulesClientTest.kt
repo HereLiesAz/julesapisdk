@@ -52,6 +52,15 @@ class JulesClientTest {
     }
 
     @Test
+    fun `listSources with correct data returns sources`() = runBlocking {
+        val mockResponse = readResource("/listSources_correct.json")
+        client = createMockClient(mapOf("/sources" to mockResponse))
+        val response = client.listSources()
+        val expected = json.decodeFromString<ListSourcesResponse>(mockResponse)
+        assertEquals(expected, response)
+    }
+
+    @Test
     fun `getSource returns source`() = runBlocking {
         val mockResponse = readResource("/getSource.json")
         client = createMockClient(mapOf("/sources/test-id" to mockResponse))
@@ -64,8 +73,22 @@ class JulesClientTest {
     fun `createSession returns session`() = runBlocking {
         val mockResponse = readResource("/createSession.json")
         client = createMockClient(mapOf("/sessions" to mockResponse))
-        val response = client.createSession(CreateSessionRequest("prompt", SourceContext("source")))
+        val request = CreateSessionRequest(
+            prompt = "Test prompt",
+            sourceContext = SourceContext(
+                source = "sources/github/test-owner/test-repo",
+                githubRepoContext = GithubRepoContext(
+                    startingBranch = "main"
+                )
+            ),
+            title = "Test Session",
+            requirePlanApproval = false,
+            automationMode = AutomationMode.AUTO_CREATE_PR
+        )
+        val response = client.createSession(request)
         val expected = json.decodeFromString<Session>(mockResponse)
+        println("Expected: $expected")
+        println("Actual: $response")
         assertEquals(expected, response)
     }
 
