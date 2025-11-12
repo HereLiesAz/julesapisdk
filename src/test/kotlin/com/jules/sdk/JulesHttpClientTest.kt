@@ -6,12 +6,19 @@ import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 class JulesHttpClientTest {
+
+    // Define the permissive Json object, just like in your other tests
+    private val json = Json {
+        ignoreUnknownKeys = true
+        prettyPrint = true
+    }
 
     @Test
     fun `get method handles success`() = runBlocking {
@@ -28,7 +35,9 @@ class JulesHttpClientTest {
             )
         }
         val httpClient = HttpClient(mockEngine) {
-            install(ContentNegotiation) { json() }
+            install(ContentNegotiation) { 
+                json(json) // Use the permissive json object, not json()
+            }
         }
         val julesHttpClient = JulesHttpClient(apiKey = "test-api-key", httpClient = httpClient)
 
@@ -49,7 +58,9 @@ class JulesHttpClientTest {
             )
         }
         val httpClient = HttpClient(mockEngine) {
-            install(ContentNegotiation) { json() }
+            install(ContentNegotiation) { 
+                json(json) // Use the permissive json object
+            }
         }
         val julesHttpClient = JulesHttpClient(apiKey = "test-api-key", httpClient = httpClient)
 
@@ -79,7 +90,9 @@ class JulesHttpClientTest {
             )
         }
         val httpClient = HttpClient(mockEngine) {
-            install(ContentNegotiation) { json() }
+            install(ContentNegotiation) { 
+                json(json) // Use the permissive json object
+            }
         }
         val julesHttpClient = JulesHttpClient(apiKey = "test-api-key", httpClient = httpClient)
 
@@ -106,7 +119,9 @@ class JulesHttpClientTest {
             )
         }
         val httpClient = HttpClient(mockEngine) {
-            install(ContentNegotiation) { json() }
+            install(ContentNegotiation) { 
+                json(json) // Use the permissive json object
+            }
         }
         val julesHttpClient = JulesHttpClient(apiKey = "test-api-key", httpClient = httpClient)
 
