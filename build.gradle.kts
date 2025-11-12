@@ -24,13 +24,14 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
     // Logging
-    implementation("ch.qos.logback:logback-classic:1.4.11")
     implementation("org.slf4j:slf4j-api:2.0.9")
 
     // Testing
     testImplementation(kotlin("test"))
     testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("io.ktor:ktor-client-mock:2.3.6")
+    testImplementation("ch.qos.logback:logback-classic:1.4.11")
+
 }
 
 tasks.test {
