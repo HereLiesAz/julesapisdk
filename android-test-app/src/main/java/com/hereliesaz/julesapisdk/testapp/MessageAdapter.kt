@@ -1,5 +1,6 @@
 package com.hereliesaz.julesapisdk.testapp
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -10,23 +11,19 @@ import androidx.recyclerview.widget.RecyclerView
 
 class MessageAdapter : ListAdapter<Message, MessageAdapter.MessageViewHolder>(MessageDiffCallback()) {
 
-    companion object {
-        private const val VIEW_TYPE_USER = 1
-        private const val VIEW_TYPE_BOT = 2
-    }
-
     override fun getItemViewType(position: Int): Int {
-        return if (getItem(position).isFromUser) VIEW_TYPE_USER else VIEW_TYPE_BOT
+        return getItem(position).type.name.hashCode()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
         val layoutInflater = LayoutInflater.from(parent.context)
-        val view = if (viewType == VIEW_TYPE_USER) {
-            layoutInflater.inflate(android.R.layout.simple_list_item_2, parent, false)
-        } else {
-            layoutInflater.inflate(android.R.layout.simple_list_item_1, parent, false)
+        val view = when (viewType) {
+            MessageType.USER.name.hashCode() -> layoutInflater.inflate(android.R.layout.simple_list_item_2, parent, false)
+            MessageType.BOT.name.hashCode() -> layoutInflater.inflate(android.R.layout.simple_list_item_1, parent, false)
+            MessageType.ERROR.name.hashCode() -> layoutInflater.inflate(android.R.layout.simple_list_item_1, parent, false)
+            else -> throw IllegalArgumentException("Unknown view type: $viewType")
         }
-        return MessageViewHolder(view, viewType)
+        return MessageViewHolder(view)
     }
 
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
@@ -34,15 +31,28 @@ class MessageAdapter : ListAdapter<Message, MessageAdapter.MessageViewHolder>(Me
         holder.bind(message)
     }
 
-    inner class MessageViewHolder(itemView: View, private val viewType: Int) : RecyclerView.ViewHolder(itemView) {
-        private val textView: TextView = if (viewType == VIEW_TYPE_USER) {
-            itemView.findViewById(android.R.id.text2)
-        } else {
-            itemView.findViewById(android.R.id.text1)
-        }
+    inner class MessageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val text1: TextView? = itemView.findViewById(android.R.id.text1)
+        private val text2: TextView? = itemView.findViewById(android.R.id.text2)
 
         fun bind(message: Message) {
-            textView.text = message.text
+            when (message.type) {
+                MessageType.USER -> {
+                    text2?.text = message.text
+                }
+                MessageType.BOT -> {
+                    text1?.apply {
+                        text = message.text
+                        setTextColor(Color.BLACK)
+                    }
+                }
+                MessageType.ERROR -> {
+                    text1?.apply {
+                        text = message.text
+                        setTextColor(Color.RED)
+                    }
+                }
+            }
         }
     }
 }
