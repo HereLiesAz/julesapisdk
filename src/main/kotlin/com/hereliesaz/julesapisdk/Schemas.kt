@@ -466,7 +466,7 @@ class ApprovePlanRequest
 /**
  * The response from sending a message.
  *
- * @property response A confirmation message.
+ * @property message A confirmation message.
  */
 @Serializable
 data class MessageResponse(

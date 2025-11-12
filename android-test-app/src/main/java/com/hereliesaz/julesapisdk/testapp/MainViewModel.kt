@@ -12,8 +12,8 @@ import kotlinx.coroutines.launch
 
 class MainViewModel : ViewModel() {
 
-    private val _messages = MutableLiveData<MutableList<Message>>(mutableListOf())
-    val messages: LiveData<MutableList<Message>> = _messages
+    private val _messages = MutableLiveData<List<Message>>(emptyList())
+    val messages: LiveData<List<Message>> = _messages
 
     private val _errorMessage = MutableLiveData<String?>()
     val errorMessage: LiveData<String?> = _errorMessage
@@ -24,8 +24,7 @@ class MainViewModel : ViewModel() {
     fun setApiKey(apiKey: String) {
         if (apiKey.isNotBlank()) {
             julesClient = JulesClient(apiKey)
-            _messages.value?.clear()
-            _messages.postValue(_messages.value)
+            _messages.postValue(emptyList())
             createJulesSession()
         }
     }
@@ -41,17 +40,24 @@ class MainViewModel : ViewModel() {
     }
 
     fun sendMessage(text: String) {
+        if (julesSession == null) {
+            _errorMessage.postValue("Session not created. Please check your API key.")
+            return
+        }
+
         val userMessage = Message(text, true)
-        _messages.value?.add(userMessage)
-        _messages.postValue(_messages.value)
+        val newMessages = _messages.value.orEmpty().toMutableList()
+        newMessages.add(userMessage)
+        _messages.postValue(newMessages)
 
         viewModelScope.launch {
             try {
                 val response = julesSession?.sendMessage(text)
                 response?.let {
                     val botMessage = Message(it.message, false)
-                    _messages.value?.add(botMessage)
-                    _messages.postValue(_messages.value)
+                    val updatedMessages = _messages.value.orEmpty().toMutableList()
+                    updatedMessages.add(botMessage)
+                    _messages.postValue(updatedMessages)
                 }
             } catch (e: Exception) {
                 _errorMessage.postValue("Error sending message: ${e.message}")
