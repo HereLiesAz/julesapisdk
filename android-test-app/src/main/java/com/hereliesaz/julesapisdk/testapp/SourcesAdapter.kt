@@ -5,11 +5,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import com.hereliesaz.julesapisdk.SourceInfo
+import com.hereliesaz.julesapisdk.Source
 
 class SourcesAdapter(
-    private val sources: MutableList<SourceInfo> = mutableListOf(),
-    private val onSourceSelected: (SourceInfo) -> Unit
+    private val sources: MutableList<Source> = mutableListOf(),
+    private val onSourceSelected: (Source) -> Unit
 ) : RecyclerView.Adapter<SourcesAdapter.SourceViewHolder>() {
 
     private var selectedPosition = RecyclerView.NO_POSITION
@@ -32,7 +32,7 @@ class SourcesAdapter(
 
     override fun getItemCount(): Int = sources.size
 
-    fun getSelectedSource(): SourceInfo? {
+    fun getSelectedSource(): Source? {
         return if (selectedPosition != RecyclerView.NO_POSITION) {
             sources[selectedPosition]
         } else {
@@ -40,7 +40,7 @@ class SourcesAdapter(
         }
     }
 
-    fun setSources(newSources: List<SourceInfo>) {
+    fun setSources(newSources: List<Source>) {
         sources.clear()
         sources.addAll(newSources)
         notifyDataSetChanged()
@@ -57,7 +57,7 @@ class SourcesAdapter(
     class SourceViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val textView: TextView = itemView.findViewById(android.R.id.text1)
 
-        fun bind(source: SourceInfo, isSelected: Boolean) {
+        fun bind(source: Source, isSelected: Boolean) {
             textView.text = source.url
             itemView.isActivated = isSelected
         }

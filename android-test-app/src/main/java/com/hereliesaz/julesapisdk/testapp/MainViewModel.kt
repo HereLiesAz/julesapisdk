@@ -8,7 +8,7 @@ import com.hereliesaz.julesapisdk.CreateSessionRequest
 import com.hereliesaz.julesapisdk.JulesClient
 import com.hereliesaz.julesapisdk.JulesSession
 import com.hereliesaz.julesapisdk.SdkResult
-import com.hereliesaz.julesapisdk.SourceInfo
+import com.hereliesaz.julesapisdk.Source
 import com.hereliesaz.julesapisdk.SourceContext
 import kotlinx.coroutines.launch
 import java.io.PrintWriter
@@ -24,8 +24,8 @@ class MainViewModel : ViewModel() {
     val messages: LiveData<List<Message>> = _messages
 
     // For Settings tab
-    private val _sources = MutableLiveData<List<SourceInfo>>()
-    val sources: LiveData<List<SourceInfo>> = _sources
+    private val _sources = MutableLiveData<List<Source>>()
+    val sources: LiveData<List<Source>> = _sources
 
     // For Logcat tab - SINGLE SOURCE OF TRUTH FOR ALL LOGS/ERRORS
     private val _diagnosticLogs = MutableLiveData<List<String>>(emptyList())
@@ -62,7 +62,7 @@ class MainViewModel : ViewModel() {
                     val sourceList = result.data.sources
                     if (sourceList.isNullOrEmpty()) {
                         addLog("No sources found for this API key.")
-                        _sources.postValue(emptyList())
+                        _sources.postValue(emptyList<Source>())
                     } else {
                         _sources.postValue(sourceList)
                         addLog("Successfully loaded ${sourceList.size} sources.")
@@ -74,7 +74,7 @@ class MainViewModel : ViewModel() {
                 is SdkResult.NetworkError -> {
                     val sw = StringWriter()
                     result.throwable.printStackTrace(PrintWriter(sw))
-                    addLog("Network error loading sources:\n$sw")
+                    addLog("Network error loading sources:$sw")
                 }
                 null -> {
                      addLog("Error: JulesClient is not initialized.")
@@ -83,7 +83,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun createSession(source: SourceInfo) {
+    fun createSession(source: Source) {
         if (julesClient == null) {
             addLog("Error: API Key is not set. Cannot create session.")
             return
@@ -94,7 +94,7 @@ class MainViewModel : ViewModel() {
             when (val result = julesClient?.createSession(CreateSessionRequest("Test Application", SourceContext(source.name)))) {
                 is SdkResult.Success -> {
                     julesSession = result.data
-                    source.url?.let { 
+                    source.url.let {
                         val successMsg = "Session created with source: $it"
                         addMessage(Message(successMsg, MessageType.BOT))
                         addLog(successMsg)
@@ -108,7 +108,7 @@ class MainViewModel : ViewModel() {
                 is SdkResult.NetworkError -> {
                     val sw = StringWriter()
                     result.throwable.printStackTrace(PrintWriter(sw))
-                    val errorMsg = "Network error creating session:\n$sw"
+                    val errorMsg = "Network error creating session:$sw"
                     addMessage(Message(errorMsg, MessageType.ERROR))
                     addLog(errorMsg)
                 }
@@ -142,7 +142,7 @@ class MainViewModel : ViewModel() {
                 is SdkResult.NetworkError -> {
                     val sw = StringWriter()
                     result.throwable.printStackTrace(PrintWriter(sw))
-                    val errorMsg = "Network error sending message:\n$sw"
+                    val errorMsg = "Network error sending message:$sw"
                     addLog(errorMsg)
                     addMessage(Message(errorMsg, MessageType.ERROR))
                 }

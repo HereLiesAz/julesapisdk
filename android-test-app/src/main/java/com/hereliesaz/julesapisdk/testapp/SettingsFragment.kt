@@ -2,17 +2,19 @@ package com.hereliesaz.julesapisdk.testapp
 
 import android.content.Intent
 import android.content.SharedPreferences
-import android.net.Uri
 import android.os.Bundle
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
-import com.hereliesaz.julesapisdk.SourceInfo
+import androidx.security.crypto.MasterKey
 import com.hereliesaz.julesapisdk.testapp.databinding.FragmentSettingsBinding
 
 class SettingsFragment : Fragment() {
@@ -53,7 +55,7 @@ class SettingsFragment : Fragment() {
 
     private fun setupClickListeners() {
         binding.getApiKeyButton.setOnClickListener {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://jules.google.com/settings"))
+            val intent = Intent(Intent.ACTION_VIEW, "https://jules.google.com/settings".toUri())
             startActivity(intent)
         }
 
@@ -102,21 +104,32 @@ class SettingsFragment : Fragment() {
     }
 
     private fun getEncryptedSharedPreferences(): SharedPreferences {
-        val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+        val keyGenParameterSpec = KeyGenParameterSpec.Builder(
+            MasterKey.DEFAULT_MASTER_KEY_ALIAS,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+        ).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setKeySize(256)
+            .build()
+
+        val masterKey = MasterKey.Builder(requireContext())
+            .setKeyGenParameterSpec(keyGenParameterSpec)
+            .build()
+
         return EncryptedSharedPreferences.create(
-            "JulesTestApp-Settings",
-            masterKeyAlias,
             requireContext(),
+            "JulesTestApp-Settings",
+            masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
     }
 
     private fun saveSettings(apiKey: String, sourceName: String) {
-        getEncryptedSharedPreferences().edit()
-            .putString("api_key", apiKey)
-            .putString("selected_source_name", sourceName)
-            .apply()
+        getEncryptedSharedPreferences().edit {
+            putString("api_key", apiKey)
+            putString("selected_source_name", sourceName)
+        }
     }
 
     private fun loadSettings() {
