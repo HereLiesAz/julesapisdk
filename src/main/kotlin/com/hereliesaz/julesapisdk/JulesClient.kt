@@ -64,8 +64,18 @@ class JulesClient(
      * @return The created `JulesSession` object.
      */
     suspend fun createSession(request: CreateSessionRequest): SdkResult<JulesSession> {
-        return when (val result = httpClient.post<Session>("/sessions", request)) {
-            is SdkResult.Success -> SdkResult.Success(JulesSession(this, result.data))
+        val result = httpClient.post<Session>("/sessions", request)
+        return when (result) {
+            is SdkResult.Success -> {
+                // The create endpoint returns a partial session, so we need to fetch the full session
+                // before returning it to the user.
+                val session = getSession(result.data.id)
+                when (session) {
+                    is SdkResult.Success -> SdkResult.Success(JulesSession(this, session.data))
+                    is SdkResult.Error -> session
+                    is SdkResult.NetworkError -> session
+                }
+            }
             is SdkResult.Error -> result
             is SdkResult.NetworkError -> result
         }
