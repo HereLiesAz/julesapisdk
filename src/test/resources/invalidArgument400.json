@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": 400,
+    "message": "Invalid argument. 'prompt' field is required.",
+    "status": "INVALID_ARGUMENT"
+  }
+}

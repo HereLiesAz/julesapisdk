@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": 404,
+    "message": "Session 'sessions/non-existent-id' not found.",
+    "status": "NOT_FOUND"
+  }
+}
