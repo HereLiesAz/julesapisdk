@@ -1,7 +1,30 @@
 plugins {
-    id("org.jetbrains.kotlin.jvm")
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
     `maven-publish`
+}
+
+android {
+    namespace = "com.hereliesaz.julesapisdk"
+    compileSdk = 36
+
+    defaultConfig {
+        minSdk = 26
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    publishing {
+        singleVariant("release")
+    }
 }
 
 group = "com.hereliesaz.julesapisdk"
@@ -30,22 +53,12 @@ dependencies {
 
 }
 
-tasks.test {
-    useJUnitPlatform()
-}
-
-kotlin {
-    jvmToolchain(17)
-}
-
 publishing {
     publications {
-        create<MavenPublication>("maven") {
+        create<MavenPublication>("release") {
             groupId = group.toString()
             artifactId = "kotlin-sdk"
             version = version.toString()
-
-            from(components["java"])
 
             pom {
                 name.set("Jules API Kotlin SDK")
@@ -71,5 +84,11 @@ publishing {
                 }
             }
         }
+    }
+}
+
+afterEvaluate {
+    publishing.publications.getByName<MavenPublication>("release") {
+        from(components["release"])
     }
 }
