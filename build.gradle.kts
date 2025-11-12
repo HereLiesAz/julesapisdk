@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.jules"
-version = "1.0.0"
+version = "1.0.1"
 
 repositories {
     mavenCentral()
@@ -29,6 +29,8 @@ dependencies {
 
     // Testing
     testImplementation(kotlin("test"))
+    testImplementation("io.mockk:mockk:1.13.8")
+    testImplementation("io.ktor:ktor-client-mock:2.3.6")
 }
 
 tasks.test {

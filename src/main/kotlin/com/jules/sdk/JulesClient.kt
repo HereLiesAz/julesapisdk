@@ -95,7 +95,7 @@ class JulesClient(
      * @param sessionId The ID of the session.
      */
     suspend fun approvePlan(sessionId: String) {
-        httpClient.post("/sessions/$sessionId:approvePlan")
+        httpClient.post<Unit>("/sessions/$sessionId:approvePlan")
     }
 
     /**
