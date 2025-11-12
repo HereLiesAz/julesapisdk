@@ -55,7 +55,7 @@ publishing {
             pom {
                 name.set("Jules API Kotlin SDK")
                 description.set("A Kotlin SDK for the Jules API.")
-                url.set("https://github.com/hereliesaz/jules-api-sdk")
+                url.set("https://github.com/hereliesaz/julesapisdk")
                 licenses {
                     license {
                         name.set("MIT License")
@@ -70,9 +70,9 @@ publishing {
                     }
                 }
                 scm {
-                    connection.set("scm:git:https://github.com/hereliesaz/jules-api-sdk.git")
-                    developerConnection.set("scm:git:ssh://github.com/hereliesaz/jules-api-sdk.git")
-                    url.set("https://github.com/hereliesaz/jules-api-sdk/tree/main")
+                    connection.set("scm:git:https://github.com/hereliesaz/julesapisdk.git")
+                    developerConnection.set("scm:git:ssh://github.com/hereliesaz/julesapisdk.git")
+                    url.set("https://github.com/hereliesaz/julesapisdk/tree/main")
                 }
             }
         }
