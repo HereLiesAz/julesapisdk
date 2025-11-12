@@ -6,7 +6,7 @@ plugins {
     `maven-publish`
 }
 
-group = "com.hereliesaz.jules-api-sdk"
+group = "com.hereliesaz.julesapisdk"
 version = "1.0.1"
 
 repositories {
