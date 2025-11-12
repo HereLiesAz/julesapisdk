@@ -6,13 +6,14 @@ import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class JulesClientTest {
 
+    private lateinit var client: JulesClient
     private val json = Json {
         ignoreUnknownKeys = true
         prettyPrint = true
@@ -35,73 +36,85 @@ class JulesClientTest {
         return JulesClient(JulesHttpClient(apiKey = "test-key", httpClient = httpClient))
     }
 
+    private fun readResource(name: String): String {
+        return this::class.java.getResource(name)!!.readText()
+    }
+
     @Test
     fun `listSources returns sources`() = runBlocking {
-        val mockResponse = ListSourcesResponse(sources = listOf(Source("name", "id", "now", "now", "url", "type")))
-        val client = createMockClient(mapOf("/sources" to json.encodeToString(mockResponse)))
+        val mockResponse = readResource("/listSources.json")
+        client = createMockClient(mapOf("/sources" to mockResponse))
         val response = client.listSources()
-        assertEquals(mockResponse, response)
+        val expected = json.decodeFromString<ListSourcesResponse>(mockResponse)
+        assertEquals(expected, response)
     }
 
     @Test
     fun `getSource returns source`() = runBlocking {
-        val mockResponse = Source("name", "id", "now", "now", "url", "type")
-        val client = createMockClient(mapOf("/sources/test-id" to json.encodeToString(mockResponse)))
+        val mockResponse = readResource("/getSource.json")
+        client = createMockClient(mapOf("/sources/test-id" to mockResponse))
         val response = client.getSource("test-id")
-        assertEquals(mockResponse, response)
+        val expected = json.decodeFromString<Source>(mockResponse)
+        assertEquals(expected, response)
     }
 
     @Test
     fun `createSession returns session`() = runBlocking {
-        val mockResponse = Session("name", "id", "now", "now", SessionState.STATE_UNSPECIFIED, "url", "prompt", SourceContext("source"))
-        val client = createMockClient(mapOf("/sessions" to json.encodeToString(mockResponse)))
+        val mockResponse = readResource("/createSession.json")
+        client = createMockClient(mapOf("/sessions" to mockResponse))
         val response = client.createSession(CreateSessionRequest("prompt", SourceContext("source")))
-        assertEquals(mockResponse, response)
+        val expected = json.decodeFromString<Session>(mockResponse)
+        assertEquals(expected, response)
     }
 
     @Test
     fun `listSessions returns sessions`() = runBlocking {
-        val mockResponse = ListSessionsResponse(sessions = listOf(Session("name", "id", "now", "now", SessionState.STATE_UNSPECIFIED, "url", "prompt", SourceContext("source"))))
-        val client = createMockClient(mapOf("/sessions" to json.encodeToString(mockResponse)))
+        val mockResponse = readResource("/listSessions.json")
+        client = createMockClient(mapOf("/sessions" to mockResponse))
         val response = client.listSessions()
-        assertEquals(mockResponse, response)
+        val expected = json.decodeFromString<ListSessionsResponse>(mockResponse)
+        assertEquals(expected, response)
     }
 
     @Test
     fun `getSession returns session`() = runBlocking {
-        val mockResponse = Session("name", "id", "now", "now", SessionState.STATE_UNSPECIFIED, "url", "prompt", SourceContext("source"))
-        val client = createMockClient(mapOf("/sessions/test-id" to json.encodeToString(mockResponse)))
+        val mockResponse = readResource("/getSession.json")
+        client = createMockClient(mapOf("/sessions/test-id" to mockResponse))
         val response = client.getSession("test-id")
-        assertEquals(mockResponse, response)
+        val expected = json.decodeFromString<Session>(mockResponse)
+        assertEquals(expected, response)
     }
 
     @Test
     fun `approvePlan works`() = runBlocking {
-        val client = createMockClient(mapOf("/sessions/test-id:approvePlan" to "{}"))
+        client = createMockClient(mapOf("/sessions/test-id:approvePlan" to "{}"))
         client.approvePlan("test-id")
     }
 
     @Test
     fun `listActivities returns activities`() = runBlocking {
-        val mockResponse = ListActivitiesResponse(activities = listOf(Activity("id", "name", "desc", "now", "now", "prompt", "state")))
-        val client = createMockClient(mapOf("/sessions/test-id/activities" to json.encodeToString(mockResponse)))
+        val mockResponse = readResource("/listActivities.json")
+        client = createMockClient(mapOf("/sessions/test-id/activities" to mockResponse))
         val response = client.listActivities("test-id")
-        assertEquals(mockResponse, response)
+        val expected = json.decodeFromString<ListActivitiesResponse>(mockResponse)
+        assertEquals(expected, response)
     }
 
     @Test
     fun `getActivity returns activity`() = runBlocking {
-        val mockResponse = Activity("id", "name", "desc", "now", "now", "prompt", "state")
-        val client = createMockClient(mapOf("/sessions/session-id/activities/activity-id" to json.encodeToString(mockResponse)))
+        val mockResponse = readResource("/getActivity.json")
+        client = createMockClient(mapOf("/sessions/session-id/activities/activity-id" to mockResponse))
         val response = client.getActivity("session-id", "activity-id")
-        assertEquals(mockResponse, response)
+        val expected = json.decodeFromString<Activity>(mockResponse)
+        assertEquals(expected, response)
     }
 
     @Test
     fun `sendMessage returns message`() = runBlocking {
-        val mockResponse = MessageResponse("message")
-        val client = createMockClient(mapOf("/sessions/test-id:sendMessage" to json.encodeToString(mockResponse)))
+        val mockResponse = readResource("/sendMessage.json")
+        client = createMockClient(mapOf("/sessions/test-id:sendMessage" to mockResponse))
         val response = client.sendMessage("test-id", "prompt")
-        assertEquals(mockResponse, response)
+        val expected = json.decodeFromString<MessageResponse>(mockResponse)
+        assertEquals(expected, response)
     }
 }
