@@ -46,11 +46,16 @@ dependencies {
     implementation(libs.slf4j.api)
 
     // Testing
-    testImplementation(kotlin("test"))
+    testImplementation(kotlin("test-junit5"))
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
     testImplementation(libs.mockk)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.logback.classic)
+}
 
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
 
 publishing {

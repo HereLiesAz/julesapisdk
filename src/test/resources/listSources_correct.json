@@ -1,0 +1,29 @@
+{
+  "sources": [
+    {
+      "name": "sources/github/test-owner/test-repo",
+      "id": "github/test-owner/test-repo",
+      "createTime": "2025-11-12T00:00:00Z",
+      "updateTime": "2025-11-12T00:00:00Z",
+      "url": "https://github.com/test-owner/test-repo",
+      "type": "GITHUB_REPO",
+      "githubRepo": {
+        "owner": "test-owner",
+        "repo": "test-repo",
+        "isPrivate": false,
+        "defaultBranch": {
+          "displayName": "main"
+        },
+        "branches": [
+          {
+            "displayName": "main"
+          },
+          {
+            "displayName": "develop"
+          }
+        ]
+      }
+    }
+  ],
+  "nextPageToken": null
+}

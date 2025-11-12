@@ -6,7 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hereliesaz.julesapisdk.CreateSessionRequest
 import com.hereliesaz.julesapisdk.JulesClient
-import com.hereliesaz.julesapisdk.JulesSession
+import com.hereliesaz.julesapisdk.Session
 import com.hereliesaz.julesapisdk.Source
 import com.hereliesaz.julesapisdk.SourceContext
 import kotlinx.coroutines.launch
@@ -31,7 +31,7 @@ class MainViewModel : ViewModel() {
     val diagnosticLogs: LiveData<List<String>> = _diagnosticLogs
 
     private var julesClient: JulesClient? = null
-    private var julesSession: JulesSession? = null
+    private var session: Session? = null
 
     fun addLog(log: String) { // Changed to public
         val timestamp = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault()).format(Date())
@@ -82,7 +82,7 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 _messages.postValue(emptyList()) // Clear chat on new session
-                julesSession = julesClient?.createSession(CreateSessionRequest("Test Application", SourceContext(source.name)))
+                session = julesClient?.createSession(CreateSessionRequest("Test Application", SourceContext(source.name)))
                 val successMsg = "Session created with source: ${source.url}"
                 addMessage(Message(successMsg, MessageType.BOT))
                 addLog(successMsg)
@@ -97,7 +97,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun sendMessage(text: String) {
-        if (julesSession == null) {
+        if (session == null) {
             val errorMsg = "Session not created. Please configure API Key and Source in Settings."
             addMessage(Message(errorMsg, MessageType.ERROR))
             addLog(errorMsg)
@@ -108,7 +108,7 @@ class MainViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                val response = julesSession?.sendMessage(text)
+                val response = julesClient?.sendMessage(session!!.id, text)
                 response?.let {
                     addMessage(Message(it.message, MessageType.BOT))
                 }

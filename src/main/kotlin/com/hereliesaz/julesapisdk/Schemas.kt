@@ -14,7 +14,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class GithubRepoContext(
-    val startingBranch: String
+    val startingBranch: String? = null
 )
 
 /**
@@ -382,6 +382,36 @@ data class ListActivitiesResponse(
 // ================================================================================================
 
 /**
+ * A GitHub branch.
+ * As returned by the `listSources` endpoint.
+ *
+ * @property displayName The name of the branch.
+ */
+@Serializable
+data class GitHubBranch(
+    val displayName: String
+)
+
+/**
+ * A GitHub repository.
+ * As returned by the `listSources` endpoint.
+ *
+ * @property owner The repository owner.
+ * @property repo The repository name.
+ * @property isPrivate Whether the repository is private.
+ * @property defaultBranch The default branch of the repository.
+ * @property branches The list of active branches.
+ */
+@Serializable
+data class GitHubRepo(
+    val owner: String,
+    val repo: String,
+    val isPrivate: Boolean,
+    val defaultBranch: GitHubBranch,
+    val branches: List<GitHubBranch>
+)
+
+/**
  * A source for the Jules AI.
  *
  * @property name The name of the source.
@@ -400,7 +430,7 @@ data class Source(
     val updateTime: String,
     val url: String,
     val type: String,
-    val githubRepo: GithubRepoContext? = null // Add this based on TS SDK
+    val githubRepo: GitHubRepo? = null
 )
 
 /**
