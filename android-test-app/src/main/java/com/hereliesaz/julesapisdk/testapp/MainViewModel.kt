@@ -8,8 +8,7 @@ import com.hereliesaz.julesapisdk.CreateSessionRequest
 import com.hereliesaz.julesapisdk.JulesClient
 import com.hereliesaz.julesapisdk.JulesSession
 import com.hereliesaz.julesapisdk.SdkResult
-import com.hereliesaz.julesapisdk.Session
-import com.hereliesaz.julesapisdk.Source
+import com.hereliesaz.julesapisdk.SourceInfo
 import com.hereliesaz.julesapisdk.SourceContext
 import kotlinx.coroutines.launch
 import java.io.PrintWriter
@@ -25,8 +24,8 @@ class MainViewModel : ViewModel() {
     val messages: LiveData<List<Message>> = _messages
 
     // For Settings tab
-    private val _sources = MutableLiveData<List<Source>>()
-    val sources: LiveData<List<Source>> = _sources
+    private val _sources = MutableLiveData<List<SourceInfo>>()
+    val sources: LiveData<List<SourceInfo>> = _sources
 
     // For Logcat tab - SINGLE SOURCE OF TRUTH FOR ALL LOGS/ERRORS
     private val _diagnosticLogs = MutableLiveData<List<String>>(emptyList())
@@ -84,7 +83,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun createSession(source: Source) {
+    fun createSession(source: SourceInfo) {
         if (julesClient == null) {
             addLog("Error: API Key is not set. Cannot create session.")
             return
@@ -95,9 +94,11 @@ class MainViewModel : ViewModel() {
             when (val result = julesClient?.createSession(CreateSessionRequest("Test Application", SourceContext(source.name)))) {
                 is SdkResult.Success -> {
                     julesSession = result.data
-                    val successMsg = "Session created with source: ${source.url}"
-                    addMessage(Message(successMsg, MessageType.BOT))
-                    addLog(successMsg)
+                    source.url?.let { 
+                        val successMsg = "Session created with source: $it"
+                        addMessage(Message(successMsg, MessageType.BOT))
+                        addLog(successMsg)
+                    } ?: addLog("Session created with source: ${source.name} (URL not available)")
                 }
                 is SdkResult.Error -> {
                     val errorMsg = "API Error creating session: ${result.code} - ${result.body}"
