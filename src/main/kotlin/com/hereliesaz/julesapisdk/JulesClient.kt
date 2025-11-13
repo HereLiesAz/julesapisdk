@@ -53,7 +53,7 @@ class JulesClient(
      * @param sourceId The ID of the source to retrieve.
      * @return The `Source` object.
      */
-    suspend fun getSource(sourceId: String): SdkResult<GithubSource> {
+    suspend fun getSource(sourceId: String): SdkResult<GithubRepoSource> {
         return httpClient.get("/sources/$sourceId")
     }
 
@@ -98,31 +98,32 @@ class JulesClient(
     /**
      * Gets a specific session by its ID.
      *
-        * @param sessionId The ID of the session to retrieve.
-        * @return The `Session` object.
+     * @param sessionId The ID of the session to retrieve.
+     * @return The `Session` object.
      */
     suspend fun getSession(sessionId: String): SdkResult<Session> {
         return httpClient.get("/$sessionId")
     }
 
+    //
+    // -----------------------------------------------------------------
+    // INTERNAL METHODS (Called by JulesSession)
+    // -----------------------------------------------------------------
+    //
+
     /**
      * Approves the latest plan for a session.
-     *
-     * @param sessionId The ID of the session.
+     * (Internal: Called by JulesSession)
      */
-    suspend fun approvePlan(sessionId: String): SdkResult<Unit> {
+    internal suspend fun internalApprovePlan(sessionId: String): SdkResult<Unit> {
         return httpClient.post("$sessionId:approvePlan", ApprovePlanRequest())
     }
 
     /**
      * Lists all activities for a session.
-     *
-     * @param sessionId The ID of the session.
-     * @param pageSize The maximum number of activities to return.
-     * @param pageToken A token for pagination.
-     * @return A `ListActivitiesResponse` containing a list of activities and an optional next page token.
+     * (Internal: Called by JulesSession)
      */
-    suspend fun listActivities(sessionId: String, pageSize: Int? = null, pageToken: String? = null): SdkResult<ListActivitiesResponse> {
+    internal suspend fun internalListActivities(sessionId: String, pageSize: Int? = null, pageToken: String? = null): SdkResult<ListActivitiesResponse> {
         val params = mutableMapOf<String, String>()
         pageSize?.let { params["pageSize"] = it.toString() }
         pageToken?.let { params["pageToken"] = it }
@@ -131,23 +132,17 @@ class JulesClient(
 
     /**
      * Gets a specific activity for a session.
-     *
-     * @param sessionId The ID of the session.
-     * @param activityId The ID of the activity to retrieve.
-     * @return The `Activity` object.
+     * (Internal: Called by JulesSession)
      */
-    suspend fun getActivity(sessionId: String, activityId: String): SdkResult<Activity> {
+    internal suspend fun internalGetActivity(sessionId: String, activityId: String): SdkResult<Activity> {
         return httpClient.get("/$sessionId/activities/$activityId")
     }
 
     /**
      * Sends a message to the agent in a session.
-     *
-     * @param sessionId The ID of the session.
-     * @param prompt The prompt to send to the agent.
-     * @return A `MessageResponse` object.
+     * (Internal: Called by JulesSession)
      */
-    suspend fun sendMessage(sessionId: String, prompt: String): SdkResult<MessageResponse> {
+    internal suspend fun internalSendMessage(sessionId: String, prompt: String): SdkResult<MessageResponse> {
         require(prompt.isNotBlank()) { "Prompt must be a non-empty string" }
         val request = SendMessageRequest(prompt)
         return httpClient.post("$sessionId:sendMessage", request)

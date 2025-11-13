@@ -8,52 +8,45 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.hereliesaz.julesapisdk.GithubRepoSource
 import com.hereliesaz.julesapisdk.Source
 
 class SourcesAdapter(
     private val onSourceSelected: (Source) -> Unit
 ) : ListAdapter<Source, SourcesAdapter.SourceViewHolder>(SourceDiffCallback()) {
 
-    private var selectedPosition = RecyclerView.NO_POSITION
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SourceViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_activated_1, parent, false)
-        return SourceViewHolder(view)
+        // *** MODIFIED: Use logcat_item for white text and consistency ***
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.logcat_item, parent, false)
+        return SourceViewHolder(view, onSourceSelected)
     }
 
     override fun onBindViewHolder(holder: SourceViewHolder, position: Int) {
         val source = getItem(position)
-        holder.bind(source, position == selectedPosition)
-        holder.itemView.setOnClickListener {
-            notifyItemChanged(selectedPosition)
-            selectedPosition = holder.adapterPosition
-            notifyItemChanged(selectedPosition)
-            onSourceSelected(source)
-        }
+        holder.bind(source)
     }
 
-    fun getSelectedSource(): Source? {
-        return if (selectedPosition != RecyclerView.NO_POSITION) {
-            getItem(selectedPosition)
-        } else {
-            null
-        }
-    }
+    class SourceViewHolder(itemView: View, private val onSourceSelected: (Source) -> Unit) :
+        RecyclerView.ViewHolder(itemView) {
 
-    fun setSelectedSource(sourceName: String) {
-        val position = currentList.indexOfFirst { it.name == sourceName }
-        if (position != -1) {
-            selectedPosition = position
-            notifyDataSetChanged()
-        }
-    }
-
-    class SourceViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        // *** MODIFIED: Use the ID from logcat_item.xml ***
         private val textView: TextView = itemView.findViewById(android.R.id.text1)
+        private var currentSource: Source? = null
 
-        fun bind(source: Source, isSelected: Boolean) {
-            textView.text = source.name
-            itemView.isActivated = isSelected
+        init {
+            itemView.setOnClickListener {
+                currentSource?.let { onSourceSelected(it) }
+            }
+        }
+
+        fun bind(source: Source) {
+            currentSource = source
+            // Display a more useful name
+            if (source is GithubRepoSource) {
+                textView.text = "${source.githubRepo.owner}/${source.githubRepo.repo}"
+            } else {
+                textView.text = source.name
+            }
         }
     }
 

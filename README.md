@@ -1,190 +1,250 @@
-# Jules AI Kotlin SDK
+# **Jules AI Kotlin SDK**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-> **Note:** This is an **unofficial** community SDK for the Jules AI API. It is not affiliated with, officially maintained by, or endorsed by Google.
+**Note:** This is an **unofficial** community SDK for the Jules AI API. It is not affiliated with, officially maintained by, or endorsed by Google.
 
 A fully-typed Kotlin SDK for the [Jules AI API](https://developers.google.com/jules/api), built with Ktor and Kotlinx Serialization. [Jules](https://jules.google.com) is a Google product that provides AI-powered coding assistance.
 
-This SDK provides a simple, asynchronous, and type-safe way to interact with all Jules API endpoints from any Kotlin application.
+This SDK provides a simple, asynchronous, and type-safe way to interact with all Jules API endpoints from any Kotlin application. It features a robust SdkResult wrapper and a stateful JulesSession object to simplify API interaction.
 
-**SDK Version:** 1.0.1 (implementing Jules API v1alpha, last updated 2025-11-10 UTC)
+**SDK Version:** 1.0.2 (implementing Jules API v1alpha, last updated 2025-11-12 UTC)
 
-## Installation
+## **Installation**
 
-Add the following dependency to your `build.gradle.kts` or `build.gradle` file:
+Add the following dependency to your build.gradle.kts or build.gradle file:
 
 **Gradle (Kotlin DSL)**
-```kotlin
+
 implementation("com.hereliesaz.julesapisdk:kotlin-sdk:1.0.2")
-```
 
-## Quick Start for Android
+## **Quick Start for Android**
 
-All SDK methods are `suspend` functions and are main-safe. They should be called from a CoroutineScope, such as the `viewModelScope` in an Android ViewModel.
+All SDK methods are suspend functions and are main-safe. They should be called from a CoroutineScope, such as the viewModelScope in an Android ViewModel.
 
-### 1. Get the JulesClient
-```kotlin
-// In your Hilt/Koin module or application class
-val client = JulesClient(apiKey = "YOUR_API_KEY")
-```
+This example shows the full, correct flow for creating a session, sending a message, and getting the response.
 
-### 2. Call the SDK from your ViewModel
-```kotlin
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.hereliesaz.julesapisdk.JulesClient
-import com.hereliesaz.julesapisdk.CreateSessionRequest
-import com.hereliesaz.julesapisdk.SourceContext
+import androidx.lifecycle.ViewModel  
+import androidx.lifecycle.viewModelScope  
+import com.hereliesaz.julesapisdk.JulesClient  
+import com.hereliesaz.julesapisdk.JulesSession  
+import com.hereliesaz.julesapisdk.CreateSessionRequest  
+import com.hereliesaz.julesapisdk.SourceContext  
+import com.hereliesaz.julesapisdk.SdkResult  
 import kotlinx.coroutines.launch
 
 class MyViewModel(private val julesClient: JulesClient) : ViewModel() {
 
-    fun createMySession() {
-        viewModelScope.launch { // Always use a scope like viewModelScope
-            val sessionRequest = CreateSessionRequest(
-                prompt = "Create a boba app!",
-                sourceContext = SourceContext(source = "my-source"),
-                title = "Boba App"
+    private var activeSession: JulesSession? \= null
+
+    fun startSessionAndSendMessage(prompt: String) {  
+        viewModelScope.launch { // Always use a scope like viewModelScope  
+              
+            // 1\. Create the session  
+            val sessionRequest \= CreateSessionRequest(  
+                prompt \= "Create a boba app\!",  
+                sourceContext \= SourceContext(source \= "sources/github/my-org/my-repo"),  
+                title \= "Boba App"  
             )
 
-            when (val result = julesClient.createSession(sessionRequest)) {
-                is SdkResult.Success -> {
-                    val session = result.data
-                    println("Created session: ${session.id}")
-                    // Update your UI state with the session
-                }
-                is SdkResult.Error -> {
-                    println("API Error: ${result.code} - ${result.body}")
-                    // Update your UI state with the API error
-                }
-                is SdkResult.NetworkError -> {
-                    println("Network Error: ${result.throwable.message}")
-                    // Update your UI state with the network error
-                }
-            }
-        }
-    }
+            val sessionResult \= julesClient.createSession(sessionRequest)  
+              
+            val julesSession \= when (sessionResult) {  
+                is SdkResult.Success \-\> {  
+                    addLog("Created session: ${sessionResult.data.session.name}")  
+                    sessionResult.data // This is our new JulesSession object  
+                }  
+                is SdkResult.Error \-\> {  
+                    addLog("API Error: ${sessionResult.code} \- ${sessionResult.body}")  
+                    return@launch  
+                }  
+                is SdkResult.NetworkError \-\> {  
+                    addLog("Network Error: ${sessionResult.throwable.message}")  
+                    return@launch  
+                }  
+            }  
+              
+            activeSession \= julesSession
+
+            // 2\. Send a follow-up message  
+            addLog("Sending message: $prompt")  
+            when (val messageResult \= julesSession.sendMessage(prompt)) {  
+                is SdkResult.Success \-\> {  
+                    addLog("Message sent. Polling for activities...")  
+                    // 3\. IMPORTANT: Poll for activities to see the response  
+                    pollActivities(julesSession)  
+                }  
+                is SdkResult.Error \-\> addLog("Error sending message: ${messageResult.code} \- ${messageResult.body}")  
+                is SdkResult.NetworkError \-\> addLog("Network error: ${messageResult.throwable.message}")  
+            }  
+        }  
+    }  
+      
+    private suspend fun pollActivities(session: JulesSession) {  
+        when (val activityResult \= session.listActivities()) {  
+            is SdkResult.Success \-\> {  
+                val activities \= activityResult.data.activities ?: emptyList()  
+                addLog("Got ${activities.size} activities.")  
+                // Update UI with the full list of activities  
+            }  
+            is SdkResult.Error \-\> addLog("Error polling activities: ${activityResult.code} \- ${activityResult.body}")  
+            is SdkResult.NetworkError \-\> addLog("Network error: ${activityResult.throwable.message}")  
+        }  
+    }  
+      
+    private fun addLog(message: String) { /\* ... \*/ }  
 }
-```
 
-## Android Test App
+## **Core Concepts & API Flow**
 
-The included Android test app in the `android-test-app` directory provides a simple way to test the SDK's functionality. To use the test app, you need to provide a valid API key and a source.
+The Jules API has several non-obvious behaviors. This SDK is designed to help you navigate them.
 
-### Configuring the Test App
+### **1\. JulesClient vs. JulesSession**
 
-1.  **API Key**: Enter your Jules API key in the "API Key" field in the app's settings.
-2.  **Source**: Enter a valid source in the "Source" field. A valid source is a string in the format `sources/github/<owner>/<repo>`. For example, `sources/github/google/jules`. You can find a list of your available sources by using the `listSources()` method in the SDK or by checking the Jules web app.
+* **JulesClient** is a factory and discovery tool. You use it to:
+    * listSources()
+    * listSessions()
+    * createSession() (which *returns* a JulesSession)
+    * getSession() (which *returns* a JulesSession)
+* **JulesSession** is a stateful object for *interaction*. Once you have a JulesSession object, you call methods on **it**, not the client:
+    * julesSession.sendMessage(...)
+    * julesSession.listActivities(...)
+    * julesSession.approvePlan()
 
-## API Methods
+### **2\. The Asynchronous Messaging Flow**
 
-All methods are `suspend` functions and should be called from a coroutine.
+**sendMessage is fire-and-forget.** When you call julesSession.sendMessage(prompt), it only *queues* your message. The API returns an empty response immediately.
 
-- **Sources**: `listSources()`, `getSource(sourceId)`
-- **Sessions**: `createSession(request)`, `listSessions()`, `getSession(sessionId)`, `approvePlan(sessionId)`
-- **Activities**: `listActivities(sessionId)`, `getActivity(sessionId, activityId)`
-- **Messages**: `sendMessage(sessionId, prompt)`
+To see your message appear in the chat *and* to get the agent's reply, you **must** call julesSession.listActivities() *after* sendMessage returns.
 
-## API Reference
+1. julesSession.sendMessage("Do the thing") \-\> Returns SdkResult.Success(Unit)
+2. julesSession.listActivities() \-\> Returns SdkResult.Success(ListActivitiesResponse(...)) which *now contains* your "Do the thing" message and any new agent responses.
 
-### JulesClient
+### **3\. CRITICAL: Resuming a Session (The 404 Bug)**
 
-#### Constructor
+The julesClient.listSessions() endpoint returns **partial** Session objects that are missing key information (like the state).
 
-```kotlin
-val client = JulesClient(
-    apiKey: String,
-    baseUrl: String = "https://jules.googleapis.com",
-    apiVersion: String = "v1alpha",
-    retryConfig: RetryConfig = RetryConfig()
+If you try to call listActivities() using a session object from this list, **it will fail with a 404 Not Found error.**
+
+**The Fix:** To correctly resume a session, you **must** first get the *full* session object using getSession().
+
+1. julesClient.listSessions() \-\> Get a list of *partial* sessions.
+2. User clicks a session with name sessions/12345.
+3. **val sessionResult \= julesClient.getSession("sessions/12345")** \-\> This call returns the *full, complete* session object.
+4. val julesSession \= sessionResult.data
+5. julesSession.listActivities() \-\> This will now **succeed**.
+
+## **Android Test App**
+
+The included Android test app in the android-test-app directory provides a simple way to test the SDK's functionality.
+
+### **Configuring the Test App**
+
+1. **API Key**: Enter your Jules API key in the "API Key" field in the app's settings.
+2. **Load Data**: Press the "Load Data" button.
+3. The app will load two lists:
+    * **Existing Sessions**: Click any session to resume it and load its chat history in the "Chat" tab.
+    * **Repositories**: Click any repository to create a **new** session and be taken to the "Chat" tab.
+
+## **API Reference**
+
+All methods return a suspend function that returns an SdkResult\<T\>.
+
+### **SdkResult\<T\> Wrapper**
+
+Every API call returns one of three states:
+
+* SdkResult.Success(data: T): The call was successful. The data property holds the response object (e.g., a Session or ListActivitiesResponse).
+* SdkResult.Error(code: Int, body: String): The API returned an HTTP error (e.g., 401, 404, 500).
+* SdkResult.NetworkError(throwable: Throwable): The request failed due to a network issue or a client-side crash (like a deserialization error).
+
+### **JulesClient (Factory & Discovery)**
+
+#### **Constructor**
+
+val client \= JulesClient(  
+apiKey \= "YOUR\_API\_KEY",  
+baseUrl \= "\[https://jules.googleapis.com\](https://jules.googleapis.com)", // Optional  
+apiVersion \= "v1alpha" // Optional  
 )
-```
 
-**Parameters:**
-- `apiKey`: Your Jules API key (required).
-- `baseUrl`: The base URL for the Jules API (optional, defaults to `https://jules.googleapis.com`).
-- `apiVersion`: The version of the Jules API to use (optional, defaults to `v1alpha`).
-- `retryConfig`: Configuration for request retries (optional).
-  - `maxRetries`: Maximum number of retry attempts (default: 0, retries are disabled by default).
-  - `initialDelayMs`: The initial delay in milliseconds before the first retry (default: 1000).
+#### **Methods**
 
-**Example with all options:**
-```kotlin
-val client = JulesClient(
-    apiKey = System.getenv("JULES_API_KEY")!!,
-    baseUrl = "https://jules.googleapis.com",
-    apiVersion = "v1alpha",
-    retryConfig = RetryConfig(
-        maxRetries = 5,
-        initialDelayMs = 500
-    )
-)
-```
+##### **listSources(pageSize: Int?, pageToken: String?, filter: String?): SdkResult\<ListSourcesResponse\>**
 
-#### Methods
-
-All methods are `suspend` functions.
-
-##### `listSources(pageSize: Int?, pageToken: String?, filter: String?): ListSourcesResponse`
 List all available sources.
 
-##### `getSource(sourceId: String): Source`
+##### **getSource(sourceId: String): SdkResult\<GithubRepoSource\>**
+
 Get details of a specific source.
 
-##### `createSession(request: CreateSessionRequest): Session`
-Create a new session.
+##### **createSession(request: CreateSessionRequest): SdkResult\<JulesSession\>**
 
-##### `listSessions(pageSize: Int?, pageToken: String?): ListSessionsResponse`
-List all sessions.
+Create a new session. **Returns a JulesSession object on success.**
 
-##### `getSession(sessionId: String): Session`
-Get details of a specific session.
+##### **listSessions(pageSize: Int?, pageToken: String?): SdkResult\<ListSessionsResponse\>**
 
-##### `approvePlan(sessionId: String)`
-Approve the latest plan for a session.
+List all sessions. **Warning: Returns partial Session objects. See "Resuming a Session" above.**
 
-##### `listActivities(sessionId: String, pageSize: Int?, pageToken: String?): ListActivitiesResponse`
-List activities for a session.
+##### **getSession(sessionId: String): SdkResult\<JJulesSession\>**
 
-##### `getActivity(sessionId: String, activityId: String): Activity`
-Get a specific activity for a session.
+Get details of a specific session. **Returns a JulesSession object on success.**
 
-##### `sendMessage(sessionId: String, prompt: String)`
-Send a message to the agent in a session.
+### **JulesSession (Interaction)**
 
-## Authentication & Security
+You get this object from createSession() or getSession().
 
-All API requests require authentication using your Jules API key. Get your API key from the Settings page in the [Jules web app](https://jules.google.com). The client automatically includes the key in the `X-Goog-Api-Key` header for all requests.
+#### **Methods**
 
-**Important:** Keep your API keys secure. Never commit them to version control or expose them in client-side code. For Android applications, we strongly recommend storing your API key securely using a mechanism like Android's [EncryptedSharedPreferences](https://developer.android.com/reference/androidx/security/crypto/EncryptedSharedPreferences). The included reference test application demonstrates this best practice.
+##### **sendMessage(prompt: String): SdkResult\<MessageResponse\>**
 
-## Error Handling & Resilience
+Send a message to the agent in this session. This is asynchronous.
 
-The SDK is built on Ktor and provides robust error handling features.
+##### **listActivities(pageSize: Int?, pageToken: String?): SdkResult\<ListActivitiesResponse\>**
 
-### Automatic Retries
+List activities for this session. Call this after sendMessage to get new messages.
 
-Retries are **disabled by default**. To enable them, provide a `RetryConfig` with `maxRetries` greater than 0.
+##### **getActivity(activityId: String): SdkResult\<Activity\>**
 
-```kotlin
-val client = JulesClient(
-    apiKey = System.getenv("JULES_API_KEY")!!,
-    retryConfig = RetryConfig(
-        maxRetries = 5,
-        initialDelayMs = 500
-    )
+Get a specific activity for this session.
+
+##### **approvePlan(): SdkResult\<Unit\>**
+
+Approve the latest plan for this session.
+
+##### **refreshSessionState(): SdkResult\<Session\>**
+
+Fetches the latest state for this session object (e.g., to check if state has changed to COMPLETED).
+
+## **Error Handling & Resilience**
+
+### **Automatic Retries**
+
+Retries are **disabled by default**. To enable them, provide a RetryConfig with maxRetries greater than 0\.
+
+val client \= JulesClient(  
+apiKey \= "YOUR\_API\_KEY",  
+retryConfig \= RetryConfig(  
+maxRetries \= 5,  
+initialDelayMs \= 500  
+)  
 )
-```
 
+### **v1alpha Stability & Deserialization**
 
-## Resources
+The v1alpha API is experimental and does not always return a consistent schema. This can cause deserialization crashes in strongly-typed clients.
 
-- [Official Jules API Documentation](https://developers.google.com/jules/api)
-- [Jules Web App](https://jules.google.com)
-- [GitHub Repository](https://github.com/hereliesaz/jules-api-sdk)
+The SDK's models (in Schemas.kt) have been made **nullable** in known problem fields to prevent crashes.
 
+* Session.state is nullable.
+* GithubRepo.isPrivate is nullable.
 
-## License
+If you encounter a NetworkError containing a kotlinx.serialization.MissingFieldException, it means the API has changed again. Please update Schemas.kt to make the reported field nullable and file an issue.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## **Resources**
+
+* [Official Jules API Documentation](https://developers.google.com/jules/api)
+* [Jules Web App](https://jules.google.com)
+* [GitHub Repository](https://github.com/hereliesaz/jules-api-sdk)
+
+## **License**
+
+This project is licensed under the MIT License \- see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.

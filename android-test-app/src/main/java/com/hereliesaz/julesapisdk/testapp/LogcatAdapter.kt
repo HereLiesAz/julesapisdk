@@ -8,28 +8,38 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 
-class LogcatAdapter : ListAdapter<String, LogcatAdapter.LogViewHolder>(LogDiffCallback()) {
+// *** MODIFIED: Inherit from ListAdapter, remove 'logs' from constructor ***
+class LogcatAdapter : ListAdapter<String, LogcatAdapter.LogcatViewHolder>(LogDiffCallback) {
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LogViewHolder {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LogcatViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.logcat_item, parent, false)
-        return LogViewHolder(view)
+        return LogcatViewHolder(view)
     }
 
-    override fun onBindViewHolder(holder: LogViewHolder, position: Int) {
-        holder.bind(getItem(position))
+    override fun onBindViewHolder(holder: LogcatViewHolder, position: Int) {
+        // *** MODIFIED: Get item from ListAdapter's internal list ***
+        val log = getItem(position)
+        holder.bind(log)
     }
 
-    class LogViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    // *** REMOVED: getItemCount() is handled by ListAdapter ***
+
+    class LogcatViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val textView: TextView = itemView.findViewById(android.R.id.text1)
 
-        fun bind(logMessage: String) {
-            textView.text = logMessage
+        fun bind(log: String) {
+            textView.text = log
+            // This is where we set this, so it only applies to logs
+            textView.setTextIsSelectable(true)
         }
     }
 
-    class LogDiffCallback : DiffUtil.ItemCallback<String>() {
+    // *** ADDED: Required DiffUtil for ListAdapter ***
+    object LogDiffCallback : DiffUtil.ItemCallback<String>() {
         override fun areItemsTheSame(oldItem: String, newItem: String): Boolean {
+            // Since logs are strings, we can just check content.
+            // If they were objects, we'd check a unique ID.
             return oldItem == newItem
         }
 

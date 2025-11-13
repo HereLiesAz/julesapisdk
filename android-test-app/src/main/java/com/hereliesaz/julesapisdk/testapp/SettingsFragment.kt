@@ -8,8 +8,10 @@ import android.security.keystore.KeyProperties
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -25,6 +27,7 @@ class SettingsFragment : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: MainViewModel by activityViewModels()
 
+    private lateinit var sessionsAdapter: SessionsAdapter
     private lateinit var sourcesAdapter: SourcesAdapter
 
     override fun onCreateView(
@@ -38,16 +41,28 @@ class SettingsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        setupRecyclerView()
+        setupRecyclerViews()
         setupClickListeners()
         setupObservers()
 
         loadSettings()
     }
 
-    private fun setupRecyclerView() {
+    private fun setupRecyclerViews() {
+        // Setup Sessions Adapter
+        sessionsAdapter = SessionsAdapter { session ->
+            viewModel.resumeSession(session)
+            (activity as? MainActivity)?.binding?.viewPager?.currentItem = 0 // Switch to chat
+        }
+        binding.sessionsRecyclerView.apply {
+            layoutManager = LinearLayoutManager(context)
+            adapter = sessionsAdapter
+        }
+
+        // Setup Sources Adapter
         sourcesAdapter = SourcesAdapter { source ->
-            // Optional: Handle source selection directly, e.g., for immediate feedback
+            viewModel.createSession(source)
+            (activity as? MainActivity)?.binding?.viewPager?.currentItem = 0 // Switch to chat
         }
         binding.sourcesRecyclerView.apply {
             layoutManager = LinearLayoutManager(context)
@@ -61,62 +76,69 @@ class SettingsFragment : Fragment() {
             startActivity(intent)
         }
 
-        binding.apiKeyEdittext.addTextChangedListener(object : android.text.TextWatcher {
-            private var searchFor: String = ""
-            private val handler = android.os.Handler(android.os.Looper.getMainLooper())
-            private val runnable = Runnable {
-                val apiKey = searchFor
-                if (apiKey.isNotBlank()) {
-                    viewModel.initializeClient(apiKey)
-                    viewModel.loadSources()
-                }
-            }
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                searchFor = s.toString()
-                handler.removeCallbacks(runnable)
-                handler.postDelayed(runnable, 500) // 500ms debounce
-            }
-            override fun afterTextChanged(s: android.text.Editable?) {}
-        })
-
-        binding.saveApiKeyButton.setOnClickListener {
-            val selectedSource = sourcesAdapter.getSelectedSource()
-            if (selectedSource != null) {
-                val apiKey = binding.apiKeyEdittext.text.toString()
-
+        binding.loadDataButton.setOnClickListener {
+            val apiKey = binding.apiKeyEdittext.text.toString()
+            if (apiKey.isNotBlank()) {
                 viewModel.initializeClient(apiKey)
-                viewModel.addLog("Settings saved. Requesting session creation...")
-                viewModel.createSession(selectedSource)
-                saveSettings(apiKey, selectedSource.name)
-
+                viewModel.loadSettingsData() // Call the new combined function
+                saveSettings(apiKey, "") // Save the key on load
             } else {
-                viewModel.addLog("Save failed: Please load and select a source first.")
+                Toast.makeText(requireContext(), "Please enter an API Key", Toast.LENGTH_SHORT).show()
+                viewModel.addLog("Load failed: API Key is blank.")
             }
         }
+
+        binding.saveApiKeyButton.setOnClickListener {
+            val apiKey = binding.apiKeyEdittext.text.toString()
+            if(apiKey.isNotBlank()) {
+                saveSettings(apiKey, "") // Save just the API key
+                Toast.makeText(requireContext(), "API Key saved", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(requireContext(), "API Key is blank", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun setListsVisibility(isVisible: Boolean) {
+        binding.sessionsRecyclerView.isVisible = isVisible
+        binding.sourcesRecyclerView.isVisible = isVisible
+        binding.sessionsLabel.isVisible = isVisible
+        binding.sourcesLabel.isVisible = isVisible
     }
 
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.uiState.collect { state ->
+                binding.progressBar.isVisible = state is UiState.Loading
+
                 when (state) {
-                    is UiState.SourcesLoaded -> {
-                        sourcesAdapter.submitList(state.sources)
-                        val savedSourceName = getEncryptedSharedPreferences().getString("selected_source_name", null)
-                        if (savedSourceName != null) {
-                            sourcesAdapter.setSelectedSource(savedSourceName)
-                        }
-                        binding.progressBar.visibility = View.GONE
+                    is UiState.Idle -> {
+                        setListsVisibility(false)
                     }
                     is UiState.Loading -> {
-                        binding.progressBar.visibility = View.VISIBLE
+                        setListsVisibility(false)
+                    }
+                    is UiState.SettingsLoaded -> {
+                        setListsVisibility(true)
+                        sessionsAdapter.submitList(state.sessions)
+                        sourcesAdapter.submitList(state.sources)
                     }
                     is UiState.Error -> {
-                        // You can show a toast or a snackbar here
-                        binding.progressBar.visibility = View.GONE
+                        setListsVisibility(false)
+                        Toast.makeText(requireContext(), "Error: ${state.message}", Toast.LENGTH_LONG).show()
                     }
-                    else -> {
-                        binding.progressBar.visibility = View.GONE
+                    // Handle deprecated states just in case
+                    is UiState.SessionsLoaded -> {
+                        setListsVisibility(true)
+                        binding.sourcesRecyclerView.isVisible = false // Hide other list
+                        binding.sourcesLabel.isVisible = false
+                        sessionsAdapter.submitList(state.sessions)
+                    }
+                    is UiState.SourcesLoaded -> {
+                        setListsVisibility(true)
+                        binding.sessionsRecyclerView.isVisible = false // Hide other list
+                        binding.sessionsLabel.isVisible = false
+                        sourcesAdapter.submitList(state.sources)
                     }
                 }
             }
@@ -148,7 +170,8 @@ class SettingsFragment : Fragment() {
     private fun saveSettings(apiKey: String, sourceName: String) {
         getEncryptedSharedPreferences().edit {
             putString("api_key", apiKey)
-            putString("selected_source_name", sourceName)
+            // We no longer save the selected source name
+            // putString("selected_source_name", sourceName)
         }
     }
 
@@ -158,7 +181,8 @@ class SettingsFragment : Fragment() {
         if (!apiKey.isNullOrBlank()) {
             binding.apiKeyEdittext.setText(apiKey)
             viewModel.initializeClient(apiKey)
-            viewModel.loadSources()
+            // Auto-load data on start
+            viewModel.loadSettingsData()
         }
     }
 
