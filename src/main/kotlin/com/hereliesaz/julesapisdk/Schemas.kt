@@ -17,7 +17,7 @@ data class ListSourcesResponse(
 data class GithubRepo(
     val owner: String,
     val repo: String,
-    // *** MODIFIED: Made field nullable to fix crash ***
+    // Per original context, this API field is unreliable
     val isPrivate: Boolean? = null,
     val defaultBranch: GithubBranch? = null,
     val branches: List<GithubBranch>? = null
@@ -74,12 +74,14 @@ data class PartialSession(
 @Serializable
 data class Session(
     val name: String,
+    // *** MODIFIED: This is non-nullable per official docs ***
     val id: String,
     val prompt: String,
     val sourceContext: SourceContext,
     val title: String? = null,
     val createTime: String,
     val updateTime: String,
+    // Per original context, this API field is unreliable
     val state: String? = null,
     val url: String,
     val outputs: List<SessionOutput>? = null
@@ -87,6 +89,7 @@ data class Session(
 
 @Serializable
 data class ListSessionsResponse(
+    // *** MODIFIED: Corrected to use full Session per official docs ***
     val sessions: List<Session>? = null,
     val nextPageToken: String? = null
 )
@@ -133,6 +136,8 @@ data class ListActivitiesResponse(
 sealed class Activity {
     abstract val name: String
     abstract val id: String
+    // *** ADDED: New field from official documentation ***
+    abstract val description: String?
     abstract val createTime: String
     abstract val originator: String
     abstract val artifacts: List<Artifact>?
@@ -142,6 +147,7 @@ sealed class Activity {
     data class AgentMessagedActivity(
         override val name: String,
         override val id: String,
+        override val description: String? = null,
         override val createTime: String,
         override val originator: String,
         override val artifacts: List<Artifact>? = null,
@@ -153,6 +159,7 @@ sealed class Activity {
     data class UserMessagedActivity(
         override val name: String,
         override val id: String,
+        override val description: String? = null,
         override val createTime: String,
         override val originator: String,
         override val artifacts: List<Artifact>? = null,
@@ -164,6 +171,7 @@ sealed class Activity {
     data class PlanGeneratedActivity(
         override val name: String,
         override val id: String,
+        override val description: String? = null,
         override val createTime: String,
         override val originator: String,
         override val artifacts: List<Artifact>? = null,
@@ -172,9 +180,11 @@ sealed class Activity {
 
     @Serializable
     @SerialName("planApproved")
+    // *** ADDED: This class was missing, causing the JsonConvertException ***
     data class PlanApprovedActivity(
         override val name: String,
         override val id: String,
+        override val description: String? = null,
         override val createTime: String,
         override val originator: String,
         override val artifacts: List<Artifact>? = null,
@@ -186,6 +196,7 @@ sealed class Activity {
     data class ProgressUpdatedActivity(
         override val name: String,
         override val id: String,
+        override val description: String? = null,
         override val createTime: String,
         override val originator: String,
         override val artifacts: List<Artifact>? = null,
@@ -197,6 +208,7 @@ sealed class Activity {
     data class SessionCompletedActivity(
         override val name: String,
         override val id: String,
+        override val description: String? = null,
         override val createTime: String,
         override val originator: String,
         override val artifacts: List<Artifact>? = null,
@@ -208,6 +220,7 @@ sealed class Activity {
     data class SessionFailedActivity(
         override val name: String,
         override val id: String,
+        override val description: String? = null,
         override val createTime: String,
         override val originator: String,
         override val artifacts: List<Artifact>? = null,
@@ -244,10 +257,12 @@ data class PlanStep(
     val id: String,
     val title: String,
     val description: String? = null,
+    // *** MODIFIED: Reverted to non-nullable per official docs ***
     val index: Int
 )
 
 @Serializable
+// *** ADDED: This payload class was missing ***
 data class PlanApproved(
     val planId: String
 )
@@ -284,6 +299,7 @@ data class ChangeSet(
 @Serializable
 data class GitPatch(
     val unidiffPatch: String? = null,
+    // *** MODIFIED: Reverted to non-nullable per official docs ***
     val baseCommitId: String,
     val suggestedCommitMessage: String? = null
 )

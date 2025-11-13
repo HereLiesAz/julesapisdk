@@ -1,63 +1,66 @@
 package com.hereliesaz.julesapisdk
 
-class JulesSession(
-    private val client: JulesClient,
-    initialSession: Session
+import kotlinx.serialization.Serializable
+
+/**
+ * Represents an active, stateful session with the Jules API.
+ *
+ * This class holds the state of a specific session and provides methods
+ * for interacting with it, such as sending messages and listing activities.
+ *
+ * @property client The JulesApiClient instance used to create this session.
+ * @property session The underlying Session data object.
+ */
+data class JulesSession(
+    // *** MODIFIED: Renamed to use JulesApiClient ***
+    internal val client: JulesApiClient,
+    val session: Session
 ) {
-    // This var holds the most recent state of the session
-    var session: Session = initialSession
-        private set // Can be read publicly, but only written internally
+    private val sessionId = session.name
 
     /**
-     * Sends a message to the agent in this session.
-     *
-     * @param prompt The prompt to send to the agent.
-     * @return A `MessageResponse` object (which is typically empty).
+     * Send a message to the agent in this session.
+     * This is asynchronous; call listActivities() to see the response.
      */
     suspend fun sendMessage(prompt: String): SdkResult<MessageResponse> {
-        return client.internalSendMessage(session.name, prompt)
+        val request = SendMessageRequest(prompt)
+        return client.httpClient.post("$sessionId:sendMessage", request)
     }
 
     /**
-     * Fetches the latest list of activities for this session.
-     * This is the primary way to get updates after sending a message.
-     *
-     * @param pageSize The maximum number of activities to return.
-     * @param pageToken A token for pagination.
-     * @return A `ListActivitiesResponse` containing a list of activities.
+     * List activities for this session.
+     * Call this after sendMessage to get new messages.
      */
-    suspend fun listActivities(pageSize: Int? = null, pageToken: String? = null): SdkResult<ListActivitiesResponse> {
-        return client.internalListActivities(session.name, pageSize, pageToken)
+    suspend fun listActivities(
+        pageSize: Int? = null,
+        pageToken: String? = null
+    ): SdkResult<ListActivitiesResponse> {
+        val params = buildMap {
+            pageSize?.let { put("pageSize", it.toString()) }
+            pageToken?.let { put("pageToken", it) }
+        }
+        return client.httpClient.get("$sessionId/activities", params)
     }
 
     /**
-     * Gets a specific activity from this session.
-     *
-     * @param activityId The ID of the activity to retrieve.
-     * @return The `Activity` object.
+     * Get a specific activity for this session.
      */
     suspend fun getActivity(activityId: String): SdkResult<Activity> {
-        return client.internalGetActivity(session.name, activityId)
+        return client.httpClient.get("$sessionId/activities/$activityId")
     }
 
     /**
-     * Approves the latest plan for this session.
+     * Approve the latest plan for this session.
      */
     suspend fun approvePlan(): SdkResult<Unit> {
-        return client.internalApprovePlan(session.name)
+        // Explicitly provided generic types for Request (Any?) and Response (Unit)
+        return client.httpClient.post<Any?, Unit>("$sessionId:approvePlan")
     }
 
     /**
-     * Refreshes the session's own state (e.g., to check if it has
-     * moved to "COMPLETED" or "FAILED").
-     *
-     * @return The updated `Session` object.
+     * Fetches the latest state for this session object.
      */
     suspend fun refreshSessionState(): SdkResult<Session> {
-        val result = client.getSession(session.name)
-        if (result is SdkResult.Success) {
-            this.session = result.data // Update the internal state
-        }
-        return result
+        return client.httpClient.get(sessionId)
     }
 }

@@ -125,12 +125,14 @@ class JulesHttpClient(
     /**
      * Makes a POST request to the specified endpoint.
      *
-     * @param T The expected return type.
+     * @param R The type of the request body.
+     * @param T The type of the expected response.
      * @param endpoint The API endpoint to call.
      * @param body The optional request body. If null, no body is sent.
      * @return The response body, deserialized to the expected type.
      */
-    suspend inline fun <reified T> post(endpoint: String, body: Any? = null): SdkResult<T> {
+    // *** MODIFIED: Changed signature to accept Request (R) and Response (T) generics ***
+    suspend inline fun <reified R, reified T> post(endpoint: String, body: R? = null): SdkResult<T> {
         return try {
             val response = client.post(buildUrl(endpoint)) {
                 if (body != null) {

@@ -118,23 +118,20 @@ To see your message appear in the chat *and* to get the agent's reply, you **mus
 1. julesSession.sendMessage("Do the thing") \-\> Returns SdkResult.Success(Unit)
 2. julesSession.listActivities() \-\> Returns SdkResult.Success(ListActivitiesResponse(...)) which *now contains* your "Do the thing" message and any new agent responses.
 
-### **3\. CRITICAL: Resuming a Session (The 404 Bug)**
+### **3\. Resuming a Session**
 
-The julesClient.listSessions() endpoint returns **partial** Session objects that are missing key information (like the state).
+The `julesClient.listSessions()` endpoint returns a list of **full, complete** `Session` objects. The workflow to resume a session is straightforward:
 
-If you try to call listActivities() using a session object from this list, **it will fail with a 404 Not Found error.**
+1.  `julesClient.listSessions()` -> Get a list of *full* sessions.
+2.  User clicks a session, providing you with a `Session` object (`sessionFromList`).
+3.  Instantiate a `JulesSession` using that object: `val julesSession = JulesSession(julesClient, sessionFromList)`
+4.  Call methods on the new object: `julesSession.listActivities()` -> This will **succeed**.
 
-**The Fix:** To correctly resume a session, you **must** first get the *full* session object using getSession().
-
-1. julesClient.listSessions() \-\> Get a list of *partial* sessions.
-2. User clicks a session with name sessions/12345.
-3. **val sessionResult \= julesClient.getSession("sessions/12345")** \-\> This call returns the *full, complete* session object.
-4. val julesSession \= sessionResult.data
-5. julesSession.listActivities() \-\> This will now **succeed**.
+*(Note: Previous guidance incorrectly stated that `listSessions` returned partial objects that would cause a 404 error. This was based on a misunderstanding and has been corrected. You do **not** need to call `getSession` before `listActivities` when resuming.)*
 
 ## **Android Test App**
 
-The included Android test app in the android-test-app directory provides a simple way to test the SDK's functionality.
+The included Android test app in the `android-test-app` directory provides a simple way to test the SDK's functionality.
 
 ### **Configuring the Test App**
 
@@ -146,15 +143,15 @@ The included Android test app in the android-test-app directory provides a simpl
 
 ## **API Reference**
 
-All methods return a suspend function that returns an SdkResult\<T\>.
+All methods return a `suspend` function that returns an `SdkResult<T>`.
 
 ### **SdkResult\<T\> Wrapper**
 
 Every API call returns one of three states:
 
-* SdkResult.Success(data: T): The call was successful. The data property holds the response object (e.g., a Session or ListActivitiesResponse).
-* SdkResult.Error(code: Int, body: String): The API returned an HTTP error (e.g., 401, 404, 500).
-* SdkResult.NetworkError(throwable: Throwable): The request failed due to a network issue or a client-side crash (like a deserialization error).
+* `SdkResult.Success(data: T)`: The call was successful. The `data` property holds the response object (e.g., a `Session` or `ListActivitiesResponse`).
+* `SdkResult.Error(code: Int, body: String)`: The API returned an HTTP error (e.g., 401, 404, 500).
+* `SdkResult.NetworkError(throwable: Throwable)`: The request failed due to a network issue or a client-side crash (like a deserialization error).
 
 ### **JulesClient (Factory & Discovery)**
 
@@ -182,7 +179,7 @@ Create a new session. **Returns a JulesSession object on success.**
 
 ##### **listSessions(pageSize: Int?, pageToken: String?): SdkResult\<ListSessionsResponse\>**
 
-List all sessions. **Warning: Returns partial Session objects. See "Resuming a Session" above.**
+List all sessions.
 
 ##### **getSession(sessionId: String): SdkResult\<JJulesSession\>**
 
@@ -190,7 +187,7 @@ Get details of a specific session. **Returns a JulesSession object on success.**
 
 ### **JulesSession (Interaction)**
 
-You get this object from createSession() or getSession().
+You get this object from `createSession()` or `getSession()`.
 
 #### **Methods**
 
@@ -200,7 +197,7 @@ Send a message to the agent in this session. This is asynchronous.
 
 ##### **listActivities(pageSize: Int?, pageToken: String?): SdkResult\<ListActivitiesResponse\>**
 
-List activities for this session. Call this after sendMessage to get new messages.
+List activities for this session. Call this after `sendMessage` to get new messages.
 
 ##### **getActivity(activityId: String): SdkResult\<Activity\>**
 
@@ -212,13 +209,13 @@ Approve the latest plan for this session.
 
 ##### **refreshSessionState(): SdkResult\<Session\>**
 
-Fetches the latest state for this session object (e.g., to check if state has changed to COMPLETED).
+Fetches the latest state for this session object (e.g., to check if `state` has changed to `COMPLETED`).
 
 ## **Error Handling & Resilience**
 
 ### **Automatic Retries**
 
-Retries are **disabled by default**. To enable them, provide a RetryConfig with maxRetries greater than 0\.
+Retries are **disabled by default**. To enable them, provide a `RetryConfig` with `maxRetries` greater than 0.
 
 val client \= JulesClient(  
 apiKey \= "YOUR\_API\_KEY",  
@@ -230,14 +227,14 @@ initialDelayMs \= 500
 
 ### **v1alpha Stability & Deserialization**
 
-The v1alpha API is experimental and does not always return a consistent schema. This can cause deserialization crashes in strongly-typed clients.
+The `v1alpha` API is experimental and does not always return a consistent schema. This can cause deserialization crashes in strongly-typed clients.
 
-The SDK's models (in Schemas.kt) have been made **nullable** in known problem fields to prevent crashes.
+The SDK's models (in `Schemas.kt`) have been made **nullable** in known problem fields to prevent crashes.
 
-* Session.state is nullable.
-* GithubRepo.isPrivate is nullable.
+* `Session.state` is nullable.
+* `GithubRepo.isPrivate` is nullable.
 
-If you encounter a NetworkError containing a kotlinx.serialization.MissingFieldException, it means the API has changed again. Please update Schemas.kt to make the reported field nullable and file an issue.
+If you encounter a `NetworkError` containing a `kotlinx.serialization.MissingFieldException`, it means the API has changed again. Please update `Schemas.kt` to make the reported field nullable and file an issue.
 
 ## **Resources**
 

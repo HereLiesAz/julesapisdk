@@ -7,55 +7,44 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.hereliesaz.julesapisdk.Session
+import com.hereliesaz.julesapisdk.PartialSession
 
-class SessionsAdapter(private val onItemClicked: (Session) -> Unit) :
-    ListAdapter<Session, SessionsAdapter.SessionViewHolder>(SessionDiffCallback) {
+class SessionsAdapter(
+    private val onSessionClicked: (PartialSession) -> Unit
+) : ListAdapter<PartialSession, SessionsAdapter.SessionViewHolder>(SessionDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SessionViewHolder {
-        // Use the custom logcat_item layout for white text
         val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.logcat_item, parent, false)
-        return SessionViewHolder(view, onItemClicked)
+            .inflate(android.R.layout.simple_list_item_2, parent, false)
+        return SessionViewHolder(view)
     }
 
     override fun onBindViewHolder(holder: SessionViewHolder, position: Int) {
         val session = getItem(position)
-        holder.bind(session)
+        holder.bind(session, onSessionClicked)
     }
 
-    class SessionViewHolder(itemView: View, private val onItemClicked: (Session) -> Unit) :
-        RecyclerView.ViewHolder(itemView) {
+    class SessionViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val titleTextView: TextView = itemView.findViewById(android.R.id.text1)
+        private val nameTextView: TextView = itemView.findViewById(android.R.id.text2)
 
-        // Use the ID from logcat_item.xml
-        private val textView: TextView = itemView.findViewById(android.R.id.text1)
-        private var currentSession: Session? = null
+        fun bind(session: PartialSession, onSessionClicked: (PartialSession) -> Unit) {
+            // *** MODIFIED: We only have 'name' from PartialSession ***
+            titleTextView.text = session.name.substringAfterLast('/') // Show ID as title
+            nameTextView.text = session.name // Show full path as subtitle
 
-        init {
             itemView.setOnClickListener {
-                currentSession?.let { onItemClicked(it) }
+                onSessionClicked(session)
             }
         }
-
-        fun bind(session: Session) {
-            currentSession = session
-            // Display a human-readable summary
-            val shortName = session.name.split('/').lastOrNull() ?: session.name
-
-            // Handle the nullable state field
-            val stateText = session.state ?: "UNKNOWN"
-            val displayText = "$shortName ($stateText)"
-
-            textView.text = displayText
-        }
     }
 
-    object SessionDiffCallback : DiffUtil.ItemCallback<Session>() {
-        override fun areItemsTheSame(oldItem: Session, newItem: Session): Boolean {
+    private class SessionDiffCallback : DiffUtil.ItemCallback<PartialSession>() {
+        override fun areItemsTheSame(oldItem: PartialSession, newItem: PartialSession): Boolean {
             return oldItem.name == newItem.name
         }
 
-        override fun areContentsTheSame(oldItem: Session, newItem: Session): Boolean {
+        override fun areContentsTheSame(oldItem: PartialSession, newItem: PartialSession): Boolean {
             return oldItem == newItem
         }
     }

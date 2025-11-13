@@ -3,11 +3,14 @@ package com.hereliesaz.julesapisdk.testapp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hereliesaz.julesapisdk.Activity
+import com.hereliesaz.julesapisdk.ApiConfig
 import com.hereliesaz.julesapisdk.CreateSessionRequest
 import com.hereliesaz.julesapisdk.GithubRepoSource
 import com.hereliesaz.julesapisdk.GithubRepoContext
-import com.hereliesaz.julesapisdk.JulesClient
+// *** MODIFIED: Renamed import ***
+import com.hereliesaz.julesapisdk.JulesApiClient
 import com.hereliesaz.julesapisdk.JulesSession
+import com.hereliesaz.julesapisdk.PartialSession
 import com.hereliesaz.julesapisdk.SdkResult
 import com.hereliesaz.julesapisdk.Session
 import com.hereliesaz.julesapisdk.Source
@@ -37,7 +40,8 @@ class MainViewModel : ViewModel() {
     private val _diagnosticLogs = MutableStateFlow<List<String>>(emptyList())
     val diagnosticLogs: StateFlow<List<String>> = _diagnosticLogs
 
-    private var julesClient: JulesClient? = null
+    // *** MODIFIED: Renamed property type ***
+    private var julesClient: JulesApiClient? = null
     private var julesSession: JulesSession? = null
 
     // State to track if the session is active
@@ -52,14 +56,14 @@ class MainViewModel : ViewModel() {
 
     fun initializeClient(apiKey: String) {
         if (apiKey.isNotBlank()) {
-            julesClient = JulesClient(apiKey)
-            addLog("JulesClient initialized.")
+            // *** MODIFIED: Construct with ApiConfig ***
+            julesClient = JulesApiClient(ApiConfig(apiKey))
+            addLog("JulesApiClient initialized.")
         } else {
             addLog("Attempted to initialize client with blank API key.")
         }
     }
 
-    // *** NEW: Function to load ALL settings data concurrently ***
     fun loadSettingsData() {
         if (julesClient == null) {
             _uiState.value = UiState.Error("API Key is not set. Cannot load data.")
@@ -101,8 +105,8 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // *** MODIFIED: This function now fetches the FULL session before resuming ***
-    fun resumeSession(sessionFromList: Session) {
+    // *** MODIFIED: This function now takes a PartialSession ***
+    fun resumeSession(sessionFromList: PartialSession) {
         if (julesClient == null) {
             addLog("Error: Client not initialized. Cannot resume session.")
             return
@@ -112,11 +116,12 @@ class MainViewModel : ViewModel() {
             _messages.value = emptyList() // Clear chat
             _uiState.value = UiState.Loading // Show spinner
 
-            // *** ADDED: Fetch the full session object ***
+            // *** This logic is now CORRECT and NECESSARY ***
             when (val fullSessionResult = julesClient!!.getSession(sessionFromList.name)) {
                 is SdkResult.Success -> {
-                    val fullSession = fullSessionResult.data
-                    julesSession = JulesSession(julesClient!!, fullSession)
+                    // Note: fullSessionResult.data is JulesSession, its .session property is Session
+                    val fullSession = fullSessionResult.data.session
+                    julesSession = fullSessionResult.data // This is the JulesSession wrapper
                     isSessionActive = (fullSession.state != "COMPLETED" && fullSession.state != "FAILED")
 
                     val successMsg = "Resumed session: ${fullSession.name}\nState: ${fullSession.state ?: "UNKNOWN"}"
@@ -190,8 +195,8 @@ class MainViewModel : ViewModel() {
                     _uiState.value = UiState.Error(errorMsg)
                 }
                 null -> {
-                    addLog("Error: JulesClient is not initialized.")
-                    _uiState.value = UiState.Error("JulesClient is not initialized.")
+                    addLog("Error: JulesApiClient is not initialized.")
+                    _uiState.value = UiState.Error("JulesApiClient is not initialized.")
                 }
             }
         }
@@ -235,7 +240,9 @@ class MainViewModel : ViewModel() {
                                 newMessages.add(Message("[BOT: Session Failed - ${activity.sessionFailed.reason}]", MessageType.ERROR))
                                 isSessionActive = false
                             }
-                            else -> {}
+                            is Activity.PlanApprovedActivity -> newMessages.add(Message("[USER: Plan Approved]", MessageType.USER))
+                            // Handle unknown activities gracefully
+                            is Activity.UnknownActivity -> addLog("Ignored unknown activity: ${activity.name}")
                         }
                     }
                     _messages.value = newMessages
