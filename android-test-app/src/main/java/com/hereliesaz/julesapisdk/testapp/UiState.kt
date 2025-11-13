@@ -1,5 +1,6 @@
 package com.hereliesaz.julesapisdk.testapp
 
+import com.hereliesaz.julesapisdk.PartialSession
 import com.hereliesaz.julesapisdk.Session
 import com.hereliesaz.julesapisdk.Source
 
@@ -11,8 +12,8 @@ sealed class UiState {
     object Idle : UiState()
     object Loading : UiState()
 
-    // *** MODIFIED: This now holds full Session objects ***
-    data class SettingsLoaded(val sessions: List<Session>, val sources: List<Source>) : UiState()
+    // *** MODIFIED: This now holds PartialSession objects from listSessions ***
+    data class SettingsLoaded(val sessions: List<PartialSession>, val sources: List<Source>) : UiState()
 
     // Deprecated states, kept for compatibility during refactor if needed
     data class SessionsLoaded(val sessions: List<Session>) : UiState()

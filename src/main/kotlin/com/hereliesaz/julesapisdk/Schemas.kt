@@ -68,6 +68,7 @@ data class CreateSessionRequest(
 
 @Serializable
 data class PartialSession(
+    // This is the only field reliably returned by listSessions
     val name: String
 )
 
@@ -89,8 +90,8 @@ data class Session(
 
 @Serializable
 data class ListSessionsResponse(
-    // *** MODIFIED: Corrected to use full Session per official docs ***
-    val sessions: List<Session>? = null,
+    // *** MODIFIED: Corrected to use PartialSession per our discovery ***
+    val sessions: List<PartialSession>? = null,
     val nextPageToken: String? = null
 )
 
@@ -257,8 +258,8 @@ data class PlanStep(
     val id: String,
     val title: String,
     val description: String? = null,
-    // *** MODIFIED: Reverted to non-nullable per official docs ***
-    val index: Int
+    // *** MODIFIED: Made nullable per our discovery about API unreliability ***
+    val index: Int? = null
 )
 
 @Serializable
@@ -299,8 +300,8 @@ data class ChangeSet(
 @Serializable
 data class GitPatch(
     val unidiffPatch: String? = null,
-    // *** MODIFIED: Reverted to non-nullable per official docs ***
-    val baseCommitId: String,
+    // *** MODIFIED: Made nullable per our discovery about API unreliability ***
+    val baseCommitId: String? = null,
     val suggestedCommitMessage: String? = null
 )
 

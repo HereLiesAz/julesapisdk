@@ -24,14 +24,14 @@ This example shows the full, correct flow for creating a session, sending a mess
 
 import androidx.lifecycle.ViewModel  
 import androidx.lifecycle.viewModelScope  
-import com.hereliesaz.julesapisdk.JulesClient  
+import com.hereliesaz.julesapisdk.Jules  
 import com.hereliesaz.julesapisdk.JulesSession  
 import com.hereliesaz.julesapisdk.CreateSessionRequest  
 import com.hereliesaz.julesapisdk.SourceContext  
 import com.hereliesaz.julesapisdk.SdkResult  
 import kotlinx.coroutines.launch
 
-class MyViewModel(private val julesClient: JulesClient) : ViewModel() {
+class MyViewModel(private val jules: Jules) : ViewModel() {
 
     private var activeSession: JulesSession? \= null
 
@@ -45,7 +45,7 @@ class MyViewModel(private val julesClient: JulesClient) : ViewModel() {
                 title \= "Boba App"  
             )
 
-            val sessionResult \= julesClient.createSession(sessionRequest)  
+            val sessionResult \= jules.api.createSession(sessionRequest)  
               
             val julesSession \= when (sessionResult) {  
                 is SdkResult.Success \-\> {  
@@ -120,14 +120,15 @@ To see your message appear in the chat *and* to get the agent's reply, you **mus
 
 ### **3\. Resuming a Session**
 
-The `julesClient.listSessions()` endpoint returns a list of **full, complete** `Session` objects. The workflow to resume a session is straightforward:
+**CRITICAL:** The `julesClient.listSessions()` endpoint returns a list of **partial** `Session` objects that *only* contain the `name` field. Attempting to use these objects directly will cause 404 Not Found errors.
 
-1.  `julesClient.listSessions()` -> Get a list of *full* sessions.
-2.  User clicks a session, providing you with a `Session` object (`sessionFromList`).
-3.  Instantiate a `JulesSession` using that object: `val julesSession = JulesSession(julesClient, sessionFromList)`
-4.  Call methods on the new object: `julesSession.listActivities()` -> This will **succeed**.
+The workflow to *correctly* resume a session is:
 
-*(Note: Previous guidance incorrectly stated that `listSessions` returned partial objects that would cause a 404 error. This was based on a misunderstanding and has been corrected. You do **not** need to call `getSession` before `listActivities` when resuming.)*
+1.  `julesClient.listSessions()` -> Get a list of *partial* sessions (`PartialSession`).
+2.  User clicks a session, providing you with a `PartialSession` object (`partialSession`).
+3.  **You MUST call `getSession`** using the name: `val sessionResult = julesClient.getSession(partialSession.name)`
+4.  If successful, `sessionResult.data` will be the full, stateful `JulesSession` object.
+5.  Call methods on the new object: `julesSession.listActivities()` -> This will now succeed.
 
 ## **Android Test App**
 
@@ -138,7 +139,7 @@ The included Android test app in the `android-test-app` directory provides a sim
 1. **API Key**: Enter your Jules API key in the "API Key" field in the app's settings.
 2. **Load Data**: Press the "Load Data" button.
 3. The app will load two lists:
-    * **Existing Sessions**: Click any session to resume it and load its chat history in the "Chat" tab.
+    * **Existing Sessions**: Click any session to resume it (correctly performing the `getSession` flow) and load its chat history in the "Chat" tab.
     * **Repositories**: Click any repository to create a **new** session and be taken to the "Chat" tab.
 
 ## **API Reference**
@@ -157,11 +158,10 @@ Every API call returns one of three states:
 
 #### **Constructor**
 
-val client \= JulesClient(  
-apiKey \= "YOUR\_API\_KEY",  
-baseUrl \= "\[https://jules.googleapis.com\](https://jules.googleapis.com)", // Optional  
-apiVersion \= "v1alpha" // Optional  
+val jules \= Jules(  
+apiConfig \= ApiConfig(apiKey \= "YOUR\_API\_KEY")
 )
+// Access via jules.api
 
 #### **Methods**
 
@@ -179,11 +179,11 @@ Create a new session. **Returns a JulesSession object on success.**
 
 ##### **listSessions(pageSize: Int?, pageToken: String?): SdkResult\<ListSessionsResponse\>**
 
-List all sessions.
+List all sessions. **CRITICAL: Returns PartialSession objects, not full sessions.**
 
-##### **getSession(sessionId: String): SdkResult\<JJulesSession\>**
+##### **getSession(sessionId: String): SdkResult\<JulesSession\>**
 
-Get details of a specific session. **Returns a JulesSession object on success.**
+Get details of a specific session. **This is required to resume a session.** Returns a `JulesSession` object on success.
 
 ### **JulesSession (Interaction)**
 
@@ -215,15 +215,16 @@ Fetches the latest state for this session object (e.g., to check if `state` has 
 
 ### **Automatic Retries**
 
-Retries are **disabled by default**. To enable them, provide a `RetryConfig` with `maxRetries` greater than 0.
+Retries are **enabled by default** (max 3 retries). To change this, provide a custom `RetryConfig` in the `ApiConfig`:
 
-val client \= JulesClient(  
+val apiConfig \= ApiConfig(  
 apiKey \= "YOUR\_API\_KEY",  
 retryConfig \= RetryConfig(  
 maxRetries \= 5,  
 initialDelayMs \= 500  
 )  
 )
+val jules \= Jules(apiConfig)
 
 ### **v1alpha Stability & Deserialization**
 
@@ -233,6 +234,8 @@ The SDK's models (in `Schemas.kt`) have been made **nullable** in known problem 
 
 * `Session.state` is nullable.
 * `GithubRepo.isPrivate` is nullable.
+* `PlanStep.index` is nullable.
+* `GitPatch.baseCommitId` is nullable.
 
 If you encounter a `NetworkError` containing a `kotlinx.serialization.MissingFieldException`, it means the API has changed again. Please update `Schemas.kt` to make the reported field nullable and file an issue.
 

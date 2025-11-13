@@ -37,7 +37,8 @@ data class ApiConfig(
     val apiKey: String,
     val apiVersion: String = "v1alpha",
     val baseUrl: String = "https://jules.googleapis.com",
-    val retryConfig: RetryConfig = RetryConfig(maxRetries = 0)
+    // *** MODIFIED: Enable retries by default per the audit (was maxRetries = 0) ***
+    val retryConfig: RetryConfig = RetryConfig(maxRetries = 3)
 )
 
 /**

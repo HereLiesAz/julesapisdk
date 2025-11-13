@@ -7,11 +7,11 @@ import com.hereliesaz.julesapisdk.ApiConfig
 import com.hereliesaz.julesapisdk.CreateSessionRequest
 import com.hereliesaz.julesapisdk.GithubRepoSource
 import com.hereliesaz.julesapisdk.GithubRepoContext
-// *** MODIFIED: Renamed import ***
-import com.hereliesaz.julesapisdk.JulesApiClient
+// *** MODIFIED: Renamed import to use the new facade ***
+import com.hereliesaz.julesapisdk.Jules
 import com.hereliesaz.julesapisdk.JulesSession
+import com.hereliesaz.julesapisdk.PartialSession
 import com.hereliesaz.julesapisdk.SdkResult
-import com.hereliesaz.julesapisdk.Session
 import com.hereliesaz.julesapisdk.Source
 import com.hereliesaz.julesapisdk.SourceContext
 import kotlinx.coroutines.async
@@ -39,8 +39,8 @@ class MainViewModel : ViewModel() {
     private val _diagnosticLogs = MutableStateFlow<List<String>>(emptyList())
     val diagnosticLogs: StateFlow<List<String>> = _diagnosticLogs
 
-    // *** MODIFIED: Renamed property type ***
-    private var julesClient: JulesApiClient? = null
+    // *** MODIFIED: Use the new Jules facade ***
+    private var julesFacade: Jules? = null
     private var julesSession: JulesSession? = null
 
     // State to track if the session is active
@@ -55,16 +55,16 @@ class MainViewModel : ViewModel() {
 
     fun initializeClient(apiKey: String) {
         if (apiKey.isNotBlank()) {
-            // *** MODIFIED: Construct with ApiConfig ***
-            julesClient = JulesApiClient(ApiConfig(apiKey))
-            addLog("JulesApiClient initialized.")
+            // *** MODIFIED: Construct Jules facade with ApiConfig ***
+            julesFacade = Jules(ApiConfig(apiKey))
+            addLog("Jules facade initialized.")
         } else {
             addLog("Attempted to initialize client with blank API key.")
         }
     }
 
     fun loadSettingsData() {
-        if (julesClient == null) {
+        if (julesFacade == null) {
             _uiState.value = UiState.Error("API Key is not set. Cannot load data.")
             return
         }
@@ -74,8 +74,9 @@ class MainViewModel : ViewModel() {
             try {
                 // Run both calls in parallel
                 val (sessionsResult, sourcesResult) = coroutineScope {
-                    val sessionsJob = async { julesClient!!.listSessions() }
-                    val sourcesJob = async { julesClient!!.listSources() }
+                    // *** MODIFIED: Access via facade.api ***
+                    val sessionsJob = async { julesFacade!!.api.listSessions() }
+                    val sourcesJob = async { julesFacade!!.api.listSources() }
                     Pair(sessionsJob.await(), sourcesJob.await())
                 }
 
@@ -104,33 +105,55 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // *** MODIFIED: This function now takes a Session and is much simpler ***
-    fun resumeSession(session: Session) {
-        if (julesClient == null) {
+    // *** MODIFIED: This function now takes a PartialSession and implements the getSession() fix ***
+    fun resumeSession(partialSession: PartialSession) {
+        if (julesFacade == null) {
             addLog("Error: Client not initialized. Cannot resume session.")
             return
         }
-        addLog("Resuming session: ${session.name}...")
+        addLog("Resuming partial session: ${partialSession.name}...")
+        _uiState.value = UiState.Loading // Show spinner
         viewModelScope.launch {
             _messages.value = emptyList() // Clear chat
 
-            // Since listSessions() now returns full Session objects, we can just wrap it.
-            // No need for another network call.
-            julesSession = JulesSession(julesClient!!, session)
-            isSessionActive = (session.state != "COMPLETED" && session.state != "FAILED")
+            // *** FIX: Call getSession to fetch the full Session object ***
+            when (val getSessionResult = julesFacade!!.api.getSession(partialSession.name)) {
+                is SdkResult.Success -> {
+                    // Now we have the full session, wrap it and proceed
+                    val fullSession = getSessionResult.data
+                    julesSession = fullSession
+                    isSessionActive = (fullSession.session.state != "COMPLETED" && fullSession.session.state != "FAILED")
 
-            val successMsg = "Resumed session: ${session.name}\nState: ${session.state ?: "UNKNOWN"}"
-            addMessage(Message(successMsg, MessageType.BOT))
-            addLog(successMsg)
+                    val successMsg = "Resumed session: ${fullSession.session.name}\nState: ${fullSession.session.state ?: "UNKNOWN"}"
+                    addMessage(Message(successMsg, MessageType.BOT))
+                    addLog(successMsg)
 
-            _uiState.value = UiState.Idle // Hide spinner
-            loadActivities() // Load the history
+                    _uiState.value = UiState.Idle // Hide spinner
+                    loadActivities() // Load the history
+                }
+                is SdkResult.Error -> {
+                    val errorMsg = "API Error resuming session: ${getSessionResult.code} - ${getSessionResult.body}"
+                    addMessage(Message(errorMsg, MessageType.ERROR))
+                    addLog(errorMsg)
+                    isSessionActive = false
+                    _uiState.value = UiState.Error(errorMsg)
+                }
+                is SdkResult.NetworkError -> {
+                    val sw = StringWriter()
+                    getSessionResult.throwable.printStackTrace(PrintWriter(sw))
+                    val errorMsg = "Network error resuming session:$sw"
+                    addMessage(Message(errorMsg, MessageType.ERROR))
+                    addLog(errorMsg)
+                    isSessionActive = false
+                    _uiState.value = UiState.Error(errorMsg)
+                }
+            }
         }
     }
 
     // This function is called when clicking a new source
     fun createSession(source: Source) {
-        if (julesClient == null) {
+        if (julesFacade == null) {
             addLog("Error: API Key is not set. Cannot create session.")
             return
         }
@@ -143,7 +166,8 @@ class MainViewModel : ViewModel() {
                 SourceContext(source.name)
             }
             _uiState.value = UiState.Loading
-            when (val result = julesClient?.createSession(CreateSessionRequest("Test Application", sourceContext))) {
+            // *** MODIFIED: Access via facade.api ***
+            when (val result = julesFacade?.api?.createSession(CreateSessionRequest("Test Application", sourceContext))) {
                 is SdkResult.Success -> {
                     julesSession = result.data
                     isSessionActive = true
@@ -176,8 +200,8 @@ class MainViewModel : ViewModel() {
                     _uiState.value = UiState.Error(errorMsg)
                 }
                 null -> {
-                    addLog("Error: JulesApiClient is not initialized.")
-                    _uiState.value = UiState.Error("JulesApiClient is not initialized.")
+                    addLog("Error: Jules facade is not initialized.")
+                    _uiState.value = UiState.Error("Jules facade is not initialized.")
                 }
             }
         }
@@ -199,6 +223,7 @@ class MainViewModel : ViewModel() {
         }
         addLog("Loading activities...")
         viewModelScope.launch {
+            // *** MODIFIED: Call listActivities on the session object ***
             when (val result = julesSession?.listActivities()) {
                 is SdkResult.Success -> {
                     val newMessages = mutableListOf<Message>()
@@ -209,7 +234,8 @@ class MainViewModel : ViewModel() {
                             is Activity.UserMessagedActivity -> newMessages.add(Message(activity.userMessaged.userMessage, MessageType.USER))
                             is Activity.AgentMessagedActivity -> newMessages.add(Message(activity.agentMessaged.agentMessage, MessageType.BOT))
                             is Activity.PlanGeneratedActivity -> {
-                                val planText = "Plan Generated:\n" + activity.planGenerated.plan.steps?.joinToString("\n") { "  ${it.index + 1}. ${it.title}" }
+                                // *** MODIFIED: Handle nullable index ***
+                                val planText = "Plan Generated:\n" + activity.planGenerated.plan.steps?.joinToString("\n") { "  ${(it.index ?: 0) + 1}. ${it.title}" }
                                 newMessages.add(Message(planText, MessageType.BOT))
                             }
                             is Activity.ProgressUpdatedActivity -> newMessages.add(Message("[BOT: ${activity.progressUpdated.title}]", MessageType.BOT))
@@ -266,9 +292,11 @@ class MainViewModel : ViewModel() {
         addLog("Sending message: $text")
 
         viewModelScope.launch {
+            // *** MODIFIED: Call sendMessage on the session object ***
             when (val result = julesSession?.sendMessage(text)) {
                 is SdkResult.Success -> {
                     addLog("Message sent successfully. Refreshing activities...")
+                    // *** FIX: Poll activities to see our own message and the reply ***
                     loadActivities()
                 }
                 is SdkResult.Error -> {
